@@ -81,7 +81,6 @@ Settings.trackers = {
     'udp://tracker.dler.org:6969',
     'udp://explodie.org:6969',
     'udp://tracker.therarbg.to:6969',
-    'udp://tracker.dump.cl:6969',
     'udp://tracker.bittor.pw:1337',
     'udp://tr4ck3r.duckdns.org:6969',
     'wss://tracker.openwebtorrent.com'
