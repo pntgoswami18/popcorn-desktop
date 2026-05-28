@@ -1,0 +1,10 @@
+--- a/node_modules/nw-builder/lib/Version.cjs
++++ b/node_modules/nw-builder/lib/Version.cjs
+@@ -39,6 +39,8 @@
+     };
+   } else {
+     var fixPlatformName = function (platform) {
++      // ARM64 platform names (e.g. 'osx-arm64') already have the correct format.
++      if (platform.indexOf('arm') !== -1) return platform;
+       return platform.replace("32", "-ia32").replace("64", "-x64");
+     };
