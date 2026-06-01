@@ -290,17 +290,13 @@
     },
 
     playTrailer: function() {
-      var trailer = new Backbone.Model({
-        src: this.model.get('trailer'),
-        type: 'video/youtube',
-        subtitle: null,
-        quality: false,
-        title: this.model.get('title')
-      });
-      var tmpPlayer = App.Device.Collection.selected.attributes.id;
-      App.Device.Collection.setDevice('local');
-      App.vent.trigger('stream:ready', trailer);
-      App.Device.Collection.setDevice(tmpPlayer);
+      // YouTube's embed API blocks playback in NW.js (Error 153) because
+      // the parent window has an unrecognised app:// origin. Open in the
+      // system browser instead, which guarantees playback in all cases.
+      var trailerUrl = this.model.get('trailer');
+      if (trailerUrl) {
+        nw.Shell.openExternal(trailerUrl);
+      }
     },
 
     toggleFavourite: function(e) {
