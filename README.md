@@ -53,13 +53,25 @@ Also, if you keep a [_Brewfile_](https://github.com/Homebrew/homebrew-bundle#usa
   cask "popcorn-time" #, args: { "no-quarantine": true }
   ~~~
 
-#### Apple Silicon:
+#### Apple Silicon (M1 / M2 / M3 / M4):
 
-If you have Apple Silicon (M-series chips), you need to use the `arm64` release. Apple Silicon apps are required to be signed and notarised with an Apple developer account. So it is necessary to manually remove the quarantine flag:
+Use the `osx-arm64` release from the [releases page](https://github.com/pntgoswami18/popcorn-desktop/releases) for native performance without Rosetta 2.
 
+#### "Popcorn-Time is damaged and can't be opened" (macOS Gatekeeper)
+
+Because this build is not code-signed with an Apple Developer certificate, macOS Gatekeeper will block it on first launch with a _"damaged and can't be opened"_ message. The app is **not** damaged — this is a standard Gatekeeper warning for unsigned apps. Use either fix below:
+
+**Option A — Terminal (quickest):**
+```bash
+xattr -cr "/Applications/Popcorn-Time.app"
 ```
-xattr -c "/Applications/Popcorn-Time.app/"
-```
+Replace the path with wherever you placed the `.app` (e.g. `~/Downloads/Popcorn-Time.app`). Then double-click the app normally.
+
+**Option B — System Settings (no Terminal):**
+1. Try to open the app → click **Cancel** on the warning dialog
+2. Open **System Settings → Privacy & Security**
+3. Scroll down to the Security section — you will see _"Popcorn-Time was blocked from use because it is not from an identified developer"_
+4. Click **Open Anyway** → confirm by clicking **Open** in the next dialog
 
 
 ### Linux - Debian/Ubuntu based distros:
