@@ -4,7 +4,7 @@
  * setup *
  ********/
 const defaultNwVersion = '0.86.0',
-  availablePlatforms = ['linux32', 'linux64', 'win32', 'win64', 'osx64'],
+  availablePlatforms = ['linux32', 'linux64', 'win32', 'win64', 'osx64', 'osx-arm64'],
   releasesDir = 'build',
   nwFlavor = 'sdk';
 
@@ -26,7 +26,30 @@ const gulp = require('gulp'),
   spawn = require('child_process').spawn,
   pkJson = require('./package.json');
 
-const { detectCurrentPlatform } = require('nw-builder/dist/index.cjs');
+const { detectCurrentPlatform, Platforms } = require('nw-builder/dist/index.cjs');
+
+// Patch nw-builder 3.x to support osx-arm64 (Apple Silicon / M1, M2, M3)
+// nw-builder 3.x only knows osx32/osx64; we inject the ARM64 entry using the
+// same key format that mapFilesToPlatforms() produces from the manifest ("osx-arm64").
+if (!Platforms['osx-arm64']) {
+  Platforms['osx-arm64'] = {
+    needsZip: false,
+    files: {
+      '>=0.12.0 || ~0.12.0-alpha': ['nwjs.app']
+    },
+    versionNameTemplate: "v${ version }/${ name }-v${ version }-osx-arm64.zip"
+  };
+}
+
+// ARM64-aware platform detection.
+// nw-builder 3.x detectCurrentPlatform() returns 'osx32' for arm64 darwin — wrong.
+// We return 'osx-arm64' which matches both the Platforms key and the manifest file name.
+const detectPlatform = () => {
+  if (process.platform === 'darwin') {
+    return process.arch === 'arm64' ? 'osx-arm64' : 'osx64';
+  }
+  return detectCurrentPlatform(process);
+};
 
 const nwVersion = yargs.argv.nwVersion || defaultNwVersion;
 
@@ -35,7 +58,7 @@ const nwVersion = yargs.argv.nwVersion || defaultNwVersion;
  ***********/
 // returns an array of platforms that should be built
 const parsePlatforms = () => {
-  const requestedPlatforms = (yargs.argv.platforms || detectCurrentPlatform(process)).split(
+  const requestedPlatforms = (yargs.argv.platforms || detectPlatform()).split(
       ','
     ),
     validPlatforms = [];
@@ -281,7 +304,7 @@ gulp.task('compresszip', () => {
       return new Promise((resolve, reject) => {
         console.log('Packaging zip for: %s', platform);
         var sources = path.join('build', pkJson.name, platform);
-        if (platform.match(/osx64/) !== null) {
+        if (platform.match(/osx/) !== null) {
           sources = path.join('build', pkJson.name, platform, '/**.app');
         }
         return gulp
@@ -358,7 +381,7 @@ gulp.task('clean:css', deleteAndLog(['src/app/themes'], 'css files'));
 gulp.task('mac-pkg', () => {
   return Promise.all(
     nw.options.platforms.map((platform) => {
-      if (detectCurrentPlatform(process).indexOf('osx') === -1) {
+      if (detectPlatform().indexOf('osx') === -1) {
         console.log('Packaging deb is only possible on osx');
         return null;
       }
@@ -373,7 +396,7 @@ gulp.task('mac-pkg', () => {
             return renameFile(
                 path.join(process.cwd(), releasesDir),
                 pkJson.name + '-' + pkJson.version + '.pkg',
-                pkJson.name + '-' + curVersion() + '-osx64' + nwSuffix() + '.pkg'
+                pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.pkg'
             ).then(() => resolve());
         }).catch(() => {
             console.log('%s failed to package pkg', platform);
@@ -532,7 +555,7 @@ gulp.task('deb', () => {
         console.log('No `deb` task for:', platform);
         return null;
       }
-      if (detectCurrentPlatform(process).indexOf('linux') === -1) {
+      if (detectPlatform().indexOf('linux') === -1) {
         console.log('Packaging deb is only possible on linux');
         return null;
       }

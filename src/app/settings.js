@@ -177,7 +177,7 @@ Settings.httpApiUsername = 'popcorn';
 Settings.httpApiPassword = 'popcorn';
 
 // API Server(s)
-Settings.customMoviesServer = '';
+Settings.customMoviesServer = 'https://yts.bz/';
 Settings.customSeriesServer = '';
 Settings.customAnimeServer = '';
 Settings.dhtEnable = '';
