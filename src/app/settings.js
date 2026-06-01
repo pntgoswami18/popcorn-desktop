@@ -177,9 +177,9 @@ Settings.httpApiUsername = 'popcorn';
 Settings.httpApiPassword = 'popcorn';
 
 // API Server(s)
-Settings.customMoviesServer = 'https://yts.bz/';
-Settings.customSeriesServer = '';
-Settings.customAnimeServer = '';
+Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
+Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
+Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
 Settings.dhtEnable = '';
 
 // Connection
