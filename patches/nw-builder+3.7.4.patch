@@ -1,6 +1,8 @@
+diff --git a/node_modules/nw-builder/lib/Version.cjs b/node_modules/nw-builder/lib/Version.cjs
+index ecd0891..d7f8022 100644
 --- a/node_modules/nw-builder/lib/Version.cjs
 +++ b/node_modules/nw-builder/lib/Version.cjs
-@@ -39,6 +39,8 @@
+@@ -39,6 +39,8 @@ module.exports = function Version(args) {
      };
    } else {
      var fixPlatformName = function (platform) {
@@ -9,10 +11,11 @@
        return platform.replace("32", "-ia32").replace("64", "-x64");
      };
  
-
+diff --git a/node_modules/nw-builder/lib/index.cjs b/node_modules/nw-builder/lib/index.cjs
+index 8796dcc..23dafd4 100644
 --- a/node_modules/nw-builder/lib/index.cjs
 +++ b/node_modules/nw-builder/lib/index.cjs
-@@ -667,7 +667,7 @@
+@@ -667,7 +667,7 @@ NwBuilder.prototype.mergeAppFiles = function () {
        self._files.forEach(function (file) {
          var dest;
  
@@ -21,7 +24,7 @@
            dest = path.resolve(
              self.getResourcesDirectoryPath(platform),
              "app.nw",
-@@ -692,7 +692,7 @@
+@@ -692,7 +692,7 @@ NwBuilder.prototype.mergeAppFiles = function () {
            self,
          ),
        );
@@ -30,7 +33,7 @@
        // zip just copy the app.nw
        copyPromises.push(
          Utils.copyFile(
-@@ -745,7 +745,7 @@
+@@ -745,7 +745,7 @@ NwBuilder.prototype.handleMacApp = function () {
      allDone = [];
  
    this._forEachPlatform(function (name, platform) {

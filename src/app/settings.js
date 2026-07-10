@@ -177,9 +177,13 @@ Settings.httpApiUsername = 'popcorn';
 Settings.httpApiPassword = 'popcorn';
 
 // API Server(s)
-Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
-Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
-Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/,https://yts.bz/';
+// NOTE: keep each list to a single API family. The mirrors below all serve
+// the standard Popcorn Time API (movies/series/anime). Do not mix in YTS
+// mirrors (e.g. yts.bz): a '://yts' substring switches the movies provider
+// to YTSApi, which uses a different API schema than these mirrors.
+Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.dhtEnable = '';
 
 // Connection

@@ -293,9 +293,42 @@
       // YouTube's embed API blocks playback in NW.js (Error 153) because
       // the parent window has an unrecognised app:// origin. Open in the
       // system browser instead, which guarantees playback in all cases.
-      var trailerUrl = this.model.get('trailer');
+      // The trailer URL comes from remote API metadata, so only hand it to
+      // the OS if it is a well-formed YouTube link with a video id.
+      var trailerUrl = this.getSafeTrailerUrl(this.model.get('trailer'));
       if (trailerUrl) {
         nw.Shell.openExternal(trailerUrl);
+      }
+    },
+
+    // Returns a normalized https YouTube URL, or null if the value is not a
+    // recognisable YouTube trailer link (metadata sources sometimes emit
+    // http:// links or empty video ids).
+    getSafeTrailerUrl: function(trailerUrl) {
+      if (!trailerUrl) {
+        return null;
+      }
+      try {
+        var parsed = new URL(trailerUrl);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+          return null;
+        }
+        var host = parsed.hostname.toLowerCase();
+        var videoId = null;
+        var match;
+        if (host === 'youtu.be') {
+          match = /^\/([\w-]{6,})\/?$/.exec(parsed.pathname);
+          videoId = match && match[1];
+        } else if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
+          match = /^\/(?:embed|v|shorts)\/([\w-]{6,})\/?$/.exec(parsed.pathname);
+          videoId = match ? match[1] : parsed.searchParams.get('v');
+        }
+        if (videoId && /^[\w-]{6,}$/.test(videoId)) {
+          return 'https://www.youtube.com/watch?v=' + videoId;
+        }
+        return null;
+      } catch (e) {
+        return null;
       }
     },
 

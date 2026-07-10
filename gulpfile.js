@@ -37,7 +37,7 @@ if (!Platforms['osx-arm64']) {
     files: {
       '>=0.12.0 || ~0.12.0-alpha': ['nwjs.app']
     },
-    versionNameTemplate: "v${ version }/${ name }-v${ version }-osx-arm64.zip"
+    versionNameTemplate: 'v${ version }/${ name }-v${ version }-osx-arm64.zip'
   };
 }
 
@@ -379,32 +379,37 @@ gulp.task('clean:css', deleteAndLog(['src/app/themes'], 'css files'));
 });
 */
 gulp.task('mac-pkg', () => {
-  return Promise.all(
-    nw.options.platforms.map((platform) => {
-      if (detectPlatform().indexOf('osx') === -1) {
-        console.log('Packaging deb is only possible on osx');
-        return null;
-      }
+  // pkg-maker.sh uses a fixed intermediate name (Build.pkg, referenced by
+  // distribution.xml), so platforms are packaged sequentially, not in parallel.
+  return nw.options.platforms.reduce((chain, platform) => {
+    if (detectPlatform().indexOf('osx') === -1) {
+      console.log('Packaging pkg is only possible on osx');
+      return chain;
+    }
+    if (platform.indexOf('osx') !== 0) {
+      console.log('Skipping pkg for non-osx platform: %s', platform);
+      return chain;
+    }
 
-      return new Promise((resolve, reject) => {
-        console.log('Packaging for: %s', platform);
+    return chain.then(() => new Promise((resolve) => {
+      console.log('Packaging for: %s', platform);
 
-        const child = spawn('bash', ['dist/mac/pkg-maker.sh']);
+      const child = spawn('bash', ['dist/mac/pkg-maker.sh', platform]);
 
-        waitProcess(child).then(() => {
-            console.log('%s pkg packaged in', platform, path.join(process.cwd(), releasesDir));
-            return renameFile(
-                path.join(process.cwd(), releasesDir),
-                pkJson.name + '-' + pkJson.version + '.pkg',
-                pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.pkg'
-            ).then(() => resolve());
-        }).catch(() => {
-            console.log('%s failed to package pkg', platform);
-            reject();
-        });
+      waitProcess(child).then(() => {
+          console.log('%s pkg packaged in', platform, path.join(process.cwd(), releasesDir));
+          return renameFile(
+              path.join(process.cwd(), releasesDir),
+              pkJson.name + '-' + pkJson.version + '-' + platform + '.pkg',
+              pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.pkg'
+          ).then(() => resolve());
+      }).catch((err) => {
+          // Log and continue so one platform's failure doesn't skip the rest.
+          console.log('%s failed to package pkg', platform, err || '');
+          resolve();
       });
-    })
-  ).catch(log);
+    }));
+  }, Promise.resolve());
 });
 
 // download and compile nwjs
