@@ -81,6 +81,15 @@
         "torrentCollection": true,
         "trakt": true,
 
+        // App (also declared in the repo-root .jshintrc)
+        "indexedDB": true,
+        "Trakt": true,
+        "pkJson": true,
+        "curSetDefaultFilters": true,
+        "extPlayerlst": true,
+        "jsonFileEditor": true,
+        "VPNht": true,
+
         // Third party
         "Backbone": true,
         "Marionette": true,

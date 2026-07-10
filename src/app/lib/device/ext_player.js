@@ -226,7 +226,7 @@
         unpause() {}
 
         static scan() {
-            let searchPaths = []
+            let searchPaths = [];
 
             let addPath = function (path) {
                 if (fs.existsSync(path)) {

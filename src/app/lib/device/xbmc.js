@@ -28,7 +28,7 @@
 
             browser.on('deviceOff', function (device) {
                 var model = collection.get({
-                    id: self.makeID(device.id)
+                    id: AirplayXBMC.makeID(device.id)
                 });
                 if (model) {
                     model.destroy();

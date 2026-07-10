@@ -541,7 +541,7 @@
             // Local subtitle hack
             App.vent.on('customSubtitles:added', function (subpath) {
                 var currentTime = 0;
-                try { currentTime = that.video.currentTime(); } catch (error) {};
+                try { currentTime = that.video.currentTime(); } catch (error) {}
                 that.customSubtitles = {
                     subPath: subpath,
                     added_at: Date.now(),

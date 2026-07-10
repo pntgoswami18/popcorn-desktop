@@ -116,7 +116,7 @@
                 }
             });
         });
-    }
+    };
 
     Updater.updateDHTOld = function () {
         if (!Settings.dht) {
@@ -134,7 +134,7 @@
         } else if (Date.now() - last > time) {
             this.updateDHT();
         }
-    }
+    };
 
     Updater.updateDHTSettings = function () {
         setTimeout(function() {
@@ -146,7 +146,7 @@
                 $('.settings-container-contain').scrollTop(scrollPos);
             }
         }, 200);
-    }
+    };
 
     Updater.alertIcon = function (e) {
         if (e) {
@@ -156,7 +156,7 @@
         } else {
             $('.update-dht').removeClass('fa-rotate valid-tick invalid-cross').addClass('fa-spin fa-spinner');
         }
-    }
+    };
 
     Updater.alertMessage = function (alertType) {
         var changeServer = function () {
@@ -201,7 +201,7 @@
                 notificationModel.set('autoclose', true);
         }
         App.vent.trigger('notification:show', notificationModel);
-    }
+    };
 
     App.Updater = Updater;
 
