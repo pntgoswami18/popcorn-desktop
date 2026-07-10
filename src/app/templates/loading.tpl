@@ -1,6 +1,6 @@
 <div class="loading">
   <div class="loading-backdrop" <% try { %> style="background-image:url( <%= backdrop %> )" <% }catch(err) {} %>></div>
-  <div class="loading-backdrop-overlay"></div>
+  <div class="loading-backdrop-overlay"<% if($('.backdrop')[0] && Settings.moviesUITransparency !== '0.65') {%> style="opacity:<%=Settings.moviesUITransparency%>"<%} else if ($('.sh-backdrop')[0] && Settings.seriesUITransparency !== 'medium') {switch(Settings.seriesUITransparency) { case 'high': %> style="opacity:0.6"<%; break; case 'vhigh': %> style="opacity:0.5"<%; break; default: %><%}}%>></div>
   <div class="fa fa-angle-down minimize-icon tooltipped" data-toggle="tooltip" data-placement="bottom" title="<%= i18n.__("Minimize") %>"></div>
   <div class="maximize-icon">
       <span class="buffer_percent"></span>
@@ -23,47 +23,6 @@
 
             <!-- download -->
             <div class="text_download"><%= i18n.__(state) %></div>
-
-            <!-- vpn -->
-            <div id="vpn-contents" class="vpn">
-                <div class="heading">Anyone can know where you’re from</div>
-                <div class="subheading">
-                    <p>Hide your IP with a VPN to block unwanted exposure and data leaks.</p>
-                    <p>Without VPN, <span id="userISP"></span> will continue to track and record everything.</p>
-                </div>
-                <div class="flex-map">
-                    <div class="map">
-                        <img id="map" src="#" / >
-                    </div>
-                    <div class="details">
-                        <div class="group">
-                            <div class="fixed-width">IP Address:</div>
-                            <div id="userIp"></div>
-                        </div>
-                        <div class="group">
-                            <div class="fixed-width">City:</div>
-                            <div id="userCity"></div>
-                        </div>
-                        <div class="group">
-                            <div class="fixed-width">Country:</div>
-                            <div id="userCountry"></div>
-                        </div>
-                        <div class="group">
-                            <div class="fixed-width">ZIP:</div>
-                            <div id="userZIP"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="cancel-button-regular" class="cancel-button">
-                      <div class="cancel-button-text"><%= i18n.__("Cancel") %></div>
-                </div>
-
-                <div id="cancel-button-vpn" class="cancel-button">
-                    <div class="cancel-button-text"><%= i18n.__("Cancel and use VPN") %></div>
-                </div>
-
-            </div>
 
             <div class="seed_status">
                 <!-- downloading info -->
@@ -94,7 +53,7 @@
                 </div>
             </div>
 
-            <div id="cancel-button" class="cancel-button">
+            <div id="cancel-button" class="cancel-button button">
                 <div class="cancel-button-text"><%= i18n.__("Cancel") %></div>
             </div>
         </div>

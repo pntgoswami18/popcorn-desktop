@@ -3,8 +3,8 @@
 /********
  * setup *
  ********/
-const nwVersion = '0.44.5',
-  availablePlatforms = ['linux32', 'linux64', 'win32', 'win64', 'osx64'],
+const defaultNwVersion = '0.86.0',
+  availablePlatforms = ['linux32', 'linux64', 'win32', 'win64', 'osx64', 'osx-arm64'],
   releasesDir = 'build',
   nwFlavor = 'sdk';
 
@@ -26,14 +26,39 @@ const gulp = require('gulp'),
   spawn = require('child_process').spawn,
   pkJson = require('./package.json');
 
-const { detectCurrentPlatform } = require('nw-builder/dist/index.cjs');
+const { detectCurrentPlatform, Platforms } = require('nw-builder/dist/index.cjs');
+
+// Patch nw-builder 3.x to support osx-arm64 (Apple Silicon / M1, M2, M3)
+// nw-builder 3.x only knows osx32/osx64; we inject the ARM64 entry using the
+// same key format that mapFilesToPlatforms() produces from the manifest ("osx-arm64").
+if (!Platforms['osx-arm64']) {
+  Platforms['osx-arm64'] = {
+    needsZip: false,
+    files: {
+      '>=0.12.0 || ~0.12.0-alpha': ['nwjs.app']
+    },
+    versionNameTemplate: 'v${ version }/${ name }-v${ version }-osx-arm64.zip'
+  };
+}
+
+// ARM64-aware platform detection.
+// nw-builder 3.x detectCurrentPlatform() returns 'osx32' for arm64 darwin — wrong.
+// We return 'osx-arm64' which matches both the Platforms key and the manifest file name.
+const detectPlatform = () => {
+  if (process.platform === 'darwin') {
+    return process.arch === 'arm64' ? 'osx-arm64' : 'osx64';
+  }
+  return detectCurrentPlatform(process);
+};
+
+const nwVersion = yargs.argv.nwVersion || defaultNwVersion;
 
 /***********
  *  custom  *
  ***********/
 // returns an array of platforms that should be built
 const parsePlatforms = () => {
-  const requestedPlatforms = (yargs.argv.platforms || detectCurrentPlatform(process)).split(
+  const requestedPlatforms = (yargs.argv.platforms || detectPlatform()).split(
       ','
     ),
     validPlatforms = [];
@@ -70,21 +95,21 @@ const parsePlatforms = () => {
 const parseReqDeps = () => {
   return new Promise((resolve, reject) => {
     exec(
-      'npm ls --production=true --parseable=true',
+      'yarn list --prod --json',
       {maxBuffer: 1024 * 500},
       (error, stdout, stderr) => {
         // build array
-        let npmList = stdout.split('\n');
-
-        // remove empty or soon-to-be empty
-        npmList = npmList.filter((line) => {
-          return line.replace(process.cwd().toString(), '');
-        });
+        let npmList = JSON.parse(stdout);
 
         // format for nw-builder
-        npmList = npmList.map((line) => {
-          return line.replace(process.cwd(), '.') + '/**';
+        npmList = npmList.data.trees.map((obj) => {
+          let name = obj.name;
+          name = name.replace(/@[\d.]+$/, '');
+          return './node_modules/' + name + '/**';
         });
+
+        // not know why it not add
+        npmList.push('./node_modules/cheerio/**');
 
         // return
         resolve(npmList);
@@ -103,6 +128,13 @@ const curVersion = () => {
     } else {
         return pkJson.version;
     }
+};
+
+const nwSuffix = () => {
+    if (nwVersion === defaultNwVersion) {
+        return '';
+    }
+    return '-' + nwVersion;
 };
 
 const waitProcess = function(process) {
@@ -175,8 +207,8 @@ const nw = new nwBuilder({
   macIcns: './src/app/images/butter.icns',
   version: nwVersion,
   flavor: nwFlavor,
-  manifestUrl: 'https://popcorn-time.ga/version.json',
-  downloadUrl: 'https://popcorn-time.ga/nw/',
+  manifestUrl: 'https://popcorn-time.serv00.net/version.json',
+  downloadUrl: 'https://popcorn-time.serv00.net/nw/',
   platforms: parsePlatforms()
 }).on('log', console.log);
 
@@ -272,43 +304,14 @@ gulp.task('compresszip', () => {
       return new Promise((resolve, reject) => {
         console.log('Packaging zip for: %s', platform);
         var sources = path.join('build', pkJson.name, platform);
-        if (platform.match(/osx64/) !== null) {
+        if (platform.match(/osx/) !== null) {
           sources = path.join('build', pkJson.name, platform, '/**.app');
         }
         return gulp
           .src(sources + '/**')
           .pipe(
-            zip(pkJson.name + '-' + curVersion() + '-' + platform + '.zip')
+            zip(pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.zip')
           )
-          .pipe(gulp.dest(releasesDir))
-          .on('end', () => {
-            console.log(
-              '%s zip packaged in %s',
-              platform,
-              path.join(process.cwd(), releasesDir)
-            );
-            resolve();
-          });
-      });
-    })
-  ).catch(log);
-});
-
-gulp.task('compressUpdater', () => {
-  return Promise.all(
-    nw.options.platforms.map((platform) => {
-      return new Promise((resolve, reject) => {
-        if (platform.indexOf('win') !== -1) {
-          console.log('Windows updater is already compressed');
-          return resolve();
-        }
-
-        let updateFile = 'update.tar';
-
-        console.log('Packaging updater for: %s', platform);
-        return gulp
-          .src(path.join('build', updateFile))
-          .pipe(zip('update-' + curVersion() + '-' + platform + '.zip'))
           .pipe(gulp.dest(releasesDir))
           .on('end', () => {
             console.log(
@@ -355,22 +358,6 @@ gulp.task(
   deleteAndLog([path.join(releasesDir, pkJson.name)], 'build files')
 );
 
-gulp.task(
-  'clean:updater',
-  deleteAndLog(
-    [path.join(process.cwd(), releasesDir, 'update.tar')],
-    'build files'
-  )
-);
-
-gulp.task(
-  'clean:updater:win',
-  deleteAndLog(
-    [path.join(process.cwd(), releasesDir, 'update.exe')],
-    'build files'
-  )
-);
-
 // clean dist files (dist)
 gulp.task(
   'clean:dist',
@@ -392,36 +379,37 @@ gulp.task('clean:css', deleteAndLog(['src/app/themes'], 'css files'));
 });
 */
 gulp.task('mac-pkg', () => {
-  return Promise.all(
-    nw.options.platforms.map((platform) => {
-      if (detectCurrentPlatform(process).indexOf('osx') === -1) {
-        console.log('Packaging deb is only possible on osx');
-        return null;
-      }
+  // pkg-maker.sh uses a fixed intermediate name (Build.pkg, referenced by
+  // distribution.xml), so platforms are packaged sequentially, not in parallel.
+  return nw.options.platforms.reduce((chain, platform) => {
+    if (detectPlatform().indexOf('osx') === -1) {
+      console.log('Packaging pkg is only possible on osx');
+      return chain;
+    }
+    if (platform.indexOf('osx') !== 0) {
+      console.log('Skipping pkg for non-osx platform: %s', platform);
+      return chain;
+    }
 
-      return new Promise((resolve, reject) => {
-        console.log('Packaging for: %s', platform);
+    return chain.then(() => new Promise((resolve) => {
+      console.log('Packaging for: %s', platform);
 
-        const child = spawn('bash', ['dist/mac/pkg-maker.sh']);
+      const child = spawn('bash', ['dist/mac/pkg-maker.sh', platform]);
 
-        waitProcess(child).then(() => {
-            console.log('%s pkg packaged in', platform, path.join(process.cwd(), releasesDir));
-            if (pkJson.version === curVersion()) {
-                resolve();
-                return;
-            }
-            return renameFile(
-                path.join(process.cwd(), releasesDir),
-                pkJson.name + '-' + pkJson.version + '.pkg',
-                pkJson.name + '-' + curVersion() + '.pkg'
-            ).then(() => resolve());
-        }).catch(() => {
-            console.log('%s failed to package pkg', platform);
-            reject();
-        });
+      waitProcess(child).then(() => {
+          console.log('%s pkg packaged in', platform, path.join(process.cwd(), releasesDir));
+          return renameFile(
+              path.join(process.cwd(), releasesDir),
+              pkJson.name + '-' + pkJson.version + '-' + platform + '.pkg',
+              pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.pkg'
+          ).then(() => resolve());
+      }).catch((err) => {
+          // Log and continue so one platform's failure doesn't skip the rest.
+          console.log('%s failed to package pkg', platform, err || '');
+          resolve();
       });
-    })
-  ).catch(log);
+    }));
+  }, Promise.resolve());
 });
 
 // download and compile nwjs
@@ -457,6 +445,22 @@ gulp.task('nwjs', () => {
 
       return nw.build();
     })
+    .then(() => {
+      return Promise.all(
+        nw.options.platforms.map((platform) => {
+            if (platform.indexOf('linux') === -1) {
+                return null;
+            }
+            const child = spawn('bash', [
+                'dist/linux/copy-libatomic.sh',
+                releasesDir,
+                pkJson.name,
+                platform
+            ]);
+            return waitProcess(child);
+        })
+      );
+    })
     .catch(function(error) {
       console.error(error);
     });
@@ -472,7 +476,7 @@ gulp.task('injectgit', () => {
             'git.json',
             JSON.stringify({
               commit: gitInfo.hash.substr(1),
-              semver: gitInfo.semverString,
+              semver: gitInfo.semverString.includes(pkJson.version) ? gitInfo.semverString : gitInfo.semverString + '-' + pkJson.version.split('-').slice(1).join('-'),
             }),
             (error) => {
               return error ? reject(error) : resolve(gitInfo);
@@ -524,30 +528,22 @@ gulp.task('nsis', () => {
       return new Promise((resolve, reject) => {
         console.log('Packaging nsis for: %s', platform);
 
-        // spawn isn't exec
-        const makensis =
-          process.platform === 'win32' ? 'makensis.exe' : 'makensis';
-
-        const child = spawn(makensis, [
-          './dist/windows/installer_makensis.nsi',
-          '-DARCH=' + platform,
-          '-DOUTDIR=' + path.join(process.cwd(), releasesDir)
-        ]);
+        const child = platform === 'win32' ? spawn('makensis.exe', ['./dist/windows/installer_makensis32.nsi', '-DOUTDIR=' + path.join(process.cwd(), releasesDir)]) : spawn('makensis', ['./dist/windows/installer_makensis64.nsi', '-DOUTDIR=' + path.join(process.cwd(), releasesDir)]);
 
         waitProcess(child).then(() => {
-            console.log('%s nsis packaged in', platform, path.join(process.cwd(), releasesDir));
-            if (pkJson.version === curVersion()) {
-                resolve();
-                return;
-            }
-            return renameFile(
-                path.join(process.cwd(), releasesDir),
-                pkJson.name + '-' + pkJson.version + '-' + platform + '-Setup.exe',
-                pkJson.name + '-' + curVersion() + '-' + platform + '-Setup.exe'
-            ).then(() => resolve());
+          console.log('%s nsis packaged in', platform, path.join(process.cwd(), releasesDir));
+          if (pkJson.version === curVersion() && !nwSuffix()) {
+            resolve();
+            return;
+          }
+          return renameFile(
+            path.join(process.cwd(), releasesDir),
+            pkJson.name + '-' + pkJson.version + '-' + platform + '-Setup.exe',
+            pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '-Setup.exe'
+          ).then(() => resolve());
         }).catch(() => {
-            console.log('%s failed to package nsis', platform);
-            reject();
+          console.log('%s failed to package nsis', platform);
+          reject();
         });
       });
     })
@@ -564,7 +560,7 @@ gulp.task('deb', () => {
         console.log('No `deb` task for:', platform);
         return null;
       }
-      if (detectCurrentPlatform(process).indexOf('linux') === -1) {
+      if (detectPlatform().indexOf('linux') === -1) {
         console.log('Packaging deb is only possible on linux');
         return null;
       }
@@ -583,101 +579,20 @@ gulp.task('deb', () => {
 
         waitProcess(child).then(() => {
             console.log('%s deb packaged in', platform, path.join(process.cwd(), releasesDir));
-            resolve();
+            if (!nwSuffix()) {
+                resolve();
+                return;
+            }
+            const suffix = platform === 'linux64' ? 'amd64' : 'i386';
+            return renameFile(
+                path.join(process.cwd(), releasesDir),
+                pkJson.name + '-' + curVersion() + '-' + suffix + '.deb',
+                pkJson.name + '-' + curVersion() + '-' + suffix + nwSuffix() + '.deb'
+            ).then(() => resolve());
         }).catch(() => {
             console.log('%s failed to package deb', platform);
             reject();
         });
-      });
-    })
-  ).catch(log);
-});
-
-gulp.task('prepareUpdater', () => {
-  return Promise.all(
-    nw.options.platforms.map((platform) => {
-      // don't package win, use nsis
-      if (platform.indexOf('win') !== -1) {
-        console.log('No `compress` task for:', platform);
-        return null;
-      }
-
-      return new Promise((resolve, reject) => {
-        console.log('Packaging tar for: %s', platform);
-
-        let sources = path.join('build', pkJson.name, platform);
-        if (platform === 'osx64') {
-          sources = path.join(sources, pkJson.name + '.app');
-        }
-
-        // list of commands
-        let excludeCmd = '--exclude .git';
-        if (process.platform.indexOf('linux') !== -1) {
-          excludeCmd = '--exclude-vcs';
-        }
-
-        const commands = [
-          'cd ' + sources,
-          'tar ' +
-            excludeCmd +
-            ' -cf ' +
-            path.join(process.cwd(), releasesDir, 'update.tar') +
-            ' .',
-          'echo "' +
-            platform +
-            ' tar packaged in ' +
-            path.join(process.cwd(), releasesDir) +
-            '" || echo "' +
-            platform +
-            ' failed to package tar"'
-        ].join(' && ');
-
-        exec(commands, (error, stdout, stderr) => {
-          if (error || stderr) {
-            console.log(error || stderr);
-            console.log('%s failed to package tar', platform);
-            resolve();
-          } else {
-            console.log(stdout.replace('\n', ''));
-            resolve();
-          }
-        });
-      });
-    })
-  ).catch(log);
-});
-
-gulp.task('prepareUpdater:win', () => {
-  return Promise.all(
-    nw.options.platforms.map((platform) => {
-      if (platform.indexOf('win') === -1) {
-        console.log(
-          'This updater sequence is only possible on win, skipping ' + platform
-        );
-        return null;
-      }
-
-      return new Promise((resolve, reject) => {
-        gulp
-          .src(
-            path.join(
-              process.cwd(),
-              releasesDir,
-              pkJson.name + '-' + curVersion() + '-' + platform + '-Setup.exe'
-            )
-          )
-          .pipe(gulpRename('update.exe'))
-          .pipe(gulp.dest(path.join(process.cwd(), releasesDir)))
-          .pipe(zip('update-' + curVersion() + '-' + platform + '.zip'))
-          .pipe(gulp.dest(releasesDir))
-          .on('end', () => {
-            console.log(
-              '%s zip packaged in %s',
-              platform,
-              path.join(process.cwd(), releasesDir)
-            );
-            resolve();
-          });
       });
     })
   ).catch(log);
@@ -708,7 +623,7 @@ gulp.task(
     'build',
     'compresszip',
     'deb',
-    'mac-pkg',
+   // 'mac-pkg',
     'nsis',
     'cleanForDist',
     function(done) {

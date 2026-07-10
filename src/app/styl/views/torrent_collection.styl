@@ -7,16 +7,16 @@
     opacity 1
 
     > .spinner
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.4) center center no-repeat;
-        pointer-events: all;
-        z-index: 1;
+        position fixed
+        width 100%
+        height 100%
+        background rgba(0, 0, 0, 0.4) center center no-repeat
+        pointer-events all
+        z-index 1
 
         .loading-container
-            margin: 50vh auto 0px
-            opacity: .8;
+            margin 50vh auto 0px
+            opacity .8
 
     .margintop
         height 100px
@@ -67,7 +67,7 @@
 
         .onlinesearch
             position relative
-            padding-left 210px
+            padding-left 190px
             width 736px
             margin 0 auto
             z-index 2
@@ -79,7 +79,7 @@
                 display none
                 position absolute
                 height 30px
-                min-width 458px
+                min-width 498px
 
                 span
                     color $InputBoxText
@@ -173,15 +173,6 @@
                     cursor pointer
                     transition opacity .1s ease-in
 
-                    &#kat-icon
-                        background url('../images/icons/kickasstorrents.png')
-                        background-size contain
-
-                    &#strike-icon
-                        -webkit-filter $PngLogo_BgColo1
-                        background url('../images/icons/getstrike.png')
-                        background-size contain
-
                     &.active
                         opacity 1
 
@@ -191,16 +182,18 @@
                 background-color $InputBoxBg
                 resize none
                 color $InputBoxText
-                font-family $Font, $AlternateFont
+                font-family $MainFont, $AlternateFont
                 font-size 13px
                 padding-left 10px
                 cursor text
                 outline 0 !important
                 height 30px
-                min-width 370px
+                min-width 410px
+                margin-right 2px
 
             .online-search
-                margin-left 5px
+                padding 5px 0 5px 5px
+                border-radius 50%
                 cursor pointer
                 color $SettingsText1
                 opacity 0.5
@@ -245,7 +238,7 @@
                     background-color $InputBoxBg
                     cursor pointer
                     color $InputBoxText
-                    font-family $Font, $AlternateFont
+                    font-family $MainFont, $AlternateFont
                     font-size 13px
                     float left
                     outline 0
@@ -303,15 +296,16 @@
 
             .online-back
                 position fixed
-                font-size 25px
-                color $TextError
+                font-size 0.9em
+                color $FilterBarIcon
                 cursor pointer
-                right 7%
-                top 152px
+                left 50%
+                top 105px
+                margin-left 205px
+                padding 3px 5px
+                border-radius 50%
+                z-index 10
                 transition color .3s
-
-                &:hover
-                    color $Text1
 
             ul
                 &.file-list
@@ -330,6 +324,7 @@
                     padding-right 50px
                     font-family $MainFont
                     font-size 15px
+                    overflow hidden
 
                     &:nth-child(odd)
                         background $ShowBgColor2
@@ -358,17 +353,19 @@
                     .item-rename
                         position relative
                         color $SettingsText1
-                        opacity 0.5
+                        opacity 0.12
                         transition all 0.3s
                         cursor pointer
-                        left calc(100% + 22px)
-                        top -42px
+                        left calc(100% + 18px)
+                        top -58px
+                        padding 3px
+                        border-radius 50%
 
                         &:hover
                             opacity 1
 
                     .item-rename
-                        left calc(100% - 25px)
+                        left calc(100% - 38px)
 
                     .item-icon
                         position relative
@@ -380,9 +377,10 @@
                         width 15px
                         color $SettingsText1
                         opacity 0.7
-                        left -25px
-                        top -27px
+                        left -33px
+                        top -35px
                         transition opacity .3s
+                        padding 8px 20px 20px 8px
 
                         &.torrent-icon:before
                             content '\f15b'
@@ -405,9 +403,9 @@
                         opacity 0.5
                         font-style normal
                         font-size .9em
-                        left calc(100% - 180px)
-                        top -42px
-                        min-width 100px
+                        left calc(100% - 150px)
+                        top -55px
+                        min-width 90px
                         text-align right
                         display inline-block
 
@@ -417,8 +415,8 @@
                         opacity 0.5
                         font-style normal
                         font-size .9em
-                        left calc(100% - 155px)
-                        top -42px
+                        left calc(100% - 135px)
+                        top -55px
                         min-width 70px
                         text-align right
                         display inline-block
@@ -439,8 +437,8 @@
         .collection-actions
             position absolute
             color $SettingsText1
-            top 5px
-            margin-left 426px
+            top 6px
+            margin-left 462px
 
             .collection-paste,
             .collection-import
@@ -448,6 +446,7 @@
                 cursor pointer
                 opacity 0.3
                 padding 0 5px 8px 5px
+                border-radius 50%
 
                 &:hover
                     opacity 1

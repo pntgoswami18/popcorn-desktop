@@ -2,27 +2,26 @@
     'use strict';
 
     var airplayer = require('airplayer'),
-        list = airplayer(),
         netw = require('network-address'),
         collection = App.Device.Collection;
 
-    var makeID = function (baseID) {
-        return 'airplay-' + baseID.replace('.', '');
-    };
-
-    var Airplay = App.Device.Generic.extend({
-        defaults: {
-            type: 'airplay',
-            typeFamily: 'external'
-        },
-        makeID: makeID,
-        initialize: function (attrs) {
+    class Airplay extends App.Device.Loaders.Device {
+        constructor(attrs) {
+            super(Object.assign( {
+                type: 'airplay',
+                typeFamily: 'external'
+            }, attrs));
+        }
+        makeID(baseID) {
+            return 'airplay-' + baseID.replace('.', '');
+        }
+        initialize(attrs) {
             this.device = attrs.device;
             this.attributes.id = this.makeID(this.device.host);
             this.attributes.name = this.device.name || this.device.serverInfo.model;
             this.attributes.address = netw();
-        },
-        play: function (streamModel) {
+        }
+        play(streamModel) {
             var url = streamModel.attributes.src;
             this.device.play(url, function (err, res) {
               if (err) {
@@ -30,28 +29,29 @@
               }
             });
 
-        },
-        stop: function () {
+        }
+        stop() {
             this.device.destroy();
-        },
-        pause: function () {
+        }
+        pause() {
             this.device.pause();
-        },
-        unpause: function () {
+        }
+        unpause() {
             this.device.resume();
         }
-    });
 
+        static scan() {
+            airplayer().on('update', function (player) {
+                win.info('Found A Device Device: %s at %s', player.name, player.host);
+                collection.add(new Airplay({
+                    device: player
+                }));
+            });
 
-    list.on('update', function (player) {
-        win.info('Found A Device Device: %s at %s', player.name, player.host);
-        collection.add(new Airplay({
-            device: player
-        }));
-    });
+            win.info('Scanning: Local Network for Airplay devices');
+        }
+    }
 
-
-    win.info('Scanning: Local Network for Airplay devices');
-    App.Device.Airplay = Airplay;
+    App.Device.Loaders.Airplay = Airplay;
 
 })(window.App);

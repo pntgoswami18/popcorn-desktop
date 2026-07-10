@@ -18,8 +18,6 @@
                 res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
             }
             res.setHeader('Content-Type', 'text/' + ext + ';charset=' + encoding);
-            win.debug('SubtitlesServer: served vtt/srt with encoding: ' + encoding);
-
         };
 
         if (ext in subtitlePath) {
@@ -54,11 +52,9 @@
         start: function (data, cb) {
 
             encoding = data.encoding || 'utf8';
-            win.debug('SubtitleServer: loading', data.srt || data.vtt);
             if (data.vtt) {
                 fs.readFile(data.vtt, function (err, data) {
                     if (err) {
-                        win.error('SubtitlesServer: Unable to load VTT file');
                         return;
                     }
                 });
@@ -68,7 +64,6 @@
             if (data.srt) {
                 fs.readFile(data.srt, function (err, data) {
                     if (err) {
-                        win.error('SubtitlesServer: Unable to load SRT file');
                         return;
                     }
                 });

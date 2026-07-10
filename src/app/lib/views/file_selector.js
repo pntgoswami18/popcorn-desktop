@@ -2,6 +2,9 @@
     'use strict';
 
     var that,
+        magnetName,
+        importedTorrent,
+        backdrop,
         formatMagnet;
 
     var FileSelector = Marionette.View.extend({
@@ -11,17 +14,24 @@
         events: {
             'click .close-icon': 'closeSelector',
             'click .file-item *': 'startStreaming',
+            'contextmenu .file-item a': 'copytoclip',
             'click .store-torrent': 'storeTorrent',
             'click .playerchoicemenu li a': 'selectPlayer',
-            'click .playerchoicehelp': 'showPlayerList'
+            'click .playerchoicehelp': 'showPlayerList',
+            'click .playerchoicerefresh': 'refreshPlayerList'
         },
 
         initialize: function () {
             that = this;
+            magnetName = Settings.droppedMagnetName;
+            delete(Settings.droppedMagnetName);
+            importedTorrent = Settings.importedTorrent;
+            delete(Settings.importedTorrent);
+            !that.model.get('localFile') ? that.model.set('localFile', false) : null;
 
             formatMagnet = function (link) {
                 // format magnet with Display Name
-                var index = link.indexOf('\&dn=') + 4, // keep display name
+                var index = Settings.droppedMagnet.indexOf('\&dn=') !== -1 ? link.indexOf('\&dn=') + 4 : link.indexOf('btih:') + 5,
                     _link = link.substring(index); // remove everything before dn
                 _link = _link.split('\&'); // array of strings starting with &
                 _link = _link[0]; // keep only the first (i.e: display name)
@@ -47,14 +57,29 @@
             if (!$.trim($('.file-selector-container .file-list').html()).length) {
                 $('.file-selector-container .file-list').html('<li style="margin-top: 30px">' + i18n.__('No results found') + '</li>');
             }
+            backdrop = !importedTorrent && $('.shb-img')[0] && $('.shb-img')[0].style ? $('.shb-img')[0].style.backgroundImage : null;
+            $('.file-selector-backdrop').css('background-image', backdrop);
+            this.$('.tooltipped').tooltip({
+                html: true,
+                delay: {
+                    'show': 800,
+                    'hide': 100
+                }
+            });
         },
 
         startStreaming: function (e) {
+            $('.tooltipped').tooltip('hide');
+            if (that.model.get('localFile')) {
+                App.vent.trigger('stream:start', that.model, 'local');
+                return App.vent.trigger('system:closeFileSelector');
+            }
             var torrent = that.model.get('torrent');
             var file = $(e.currentTarget).parent().attr('data-file');
 
             var torrentStart = new Backbone.Model({
                 torrent: torrent.magnetURI,
+                backdrop: backdrop ? backdrop.replace('url("', '').replace('")', '') : null,
                 torrent_read: true,
                 file_name: file,
                 device: App.Device.Collection.selected
@@ -63,8 +88,10 @@
             App.vent.trigger('system:closeFileSelector');
             if ($(e.currentTarget).hasClass('item-download')) {
                 if (Settings.showSeedboxOnDlInit) {
-                    App.vent.trigger('torrentCollection:close');
-                    App.currentview = 'Seedbox';
+                    if (App.currentview !== 'Torrent-collection') {
+                        App.previousview = App.currentview;
+                        App.currentview = 'Seedbox';
+                    }
                     App.vent.trigger('seedbox:show');
                     $('.filter-bar').find('.active').removeClass('active');
                     $('#filterbar-seedbox').addClass('active');
@@ -75,6 +102,8 @@
             }
         },
 
+        copytoclip: (e) => Common.openOrClipboardLink(e, $(e.target)[0].textContent, i18n.__('filename'), true),
+
         isTorrentStored: function () {
             var target = App.settings['databaseLocation'] + '/TorrentCollection/';
 
@@ -82,19 +111,13 @@
             if (!Settings.droppedTorrent && !Settings.droppedMagnet) {
                 $('.store-torrent').hide();
                 return false;
-            } else if (Settings.droppedMagnet && Settings.droppedMagnet.indexOf('\&dn=') === -1) {
-                var storeTorrent = $('.store-torrent');
-                storeTorrent.text(i18n.__('Cannot be stored'));
-                storeTorrent.addClass('disabled').prop('disabled', true);
-                win.warn('Magnet lacks Display Name, unable to store it');
-                return false;
             }
             var file, _file;
             if (Settings.droppedTorrent) {
                 file = Settings.droppedTorrent;
             } else if (Settings.droppedMagnet && !Settings.droppedStoredMagnet) {
                 _file = Settings.droppedMagnet,
-                    file = formatMagnet(_file);
+                    file = magnetName || formatMagnet(_file);
             } else if (Settings.droppedMagnet && Settings.droppedStoredMagnet) {
                 file = Settings.droppedStoredMagnet;
             }
@@ -120,30 +143,30 @@
 
                 if (this.isTorrentStored()) {
                     fs.unlinkSync(target + file); // remove the torrent
-                    win.debug('Torrent Collection: deleted', file);
+                    win.info('Torrent Collection: deleted', file);
                 } else {
                     if (!fs.existsSync(target)) {
                         fs.mkdir(target); // create directory if needed
                     }
                     fs.writeFileSync(target + file, fs.readFileSync(source + file)); // save torrent
-                    win.debug('Torrent Collection: added', file);
+                    win.info('Torrent Collection: added', file);
                 }
             } else if (Settings.droppedMagnet) {
                 _file = Settings.droppedMagnet,
-                    file = formatMagnet(_file);
+                    file = magnetName || formatMagnet(_file);
 
                 if (this.isTorrentStored()) {
                     if (Settings.droppedStoredMagnet) {
                         file = Settings.droppedStoredMagnet;
                     }
                     fs.unlinkSync(target + file); // remove the magnet
-                    win.debug('Torrent Collection: deleted', file);
+                    win.info('Torrent Collection: deleted', file);
                 } else {
                     if (!fs.existsSync(target)) {
                         fs.mkdir(target); // create directory if needed
                     }
                     fs.writeFileSync(target + file, _file); // save magnet link inside readable file
-                    win.debug('Torrent Collection: added', file);
+                    win.info('Torrent Collection: added', file);
                 }
             }
             this.isTorrentStored(); // trigger button change
@@ -154,19 +177,15 @@
         },
 
         selectPlayer: function (e) {
-            var player = $(e.currentTarget).parent('li').attr('id').replace('player-', '');
-            that.model.set('device', player);
-            if (!player.match(/[0-9]+.[0-9]+.[0-9]+.[0-9]/ig)) {
-                AdvSettings.set('chosenPlayer', player);
-            }
+            Common.selectPlayer(e, that.model);
         },
 
-        showPlayerList: function(e) {
-            App.vent.trigger('notification:show', new App.Model.Notification({
-                title: '',
-                body: i18n.__('Popcorn Time currently supports') + '<div class="splayerlist">' + extPlayerlst + '.</div><br>' + i18n.__('There is also support for Chromecast, AirPlay & DLNA devices.'),
-                type: 'success'
-            }));
+        showPlayerList: function () {
+            Common.showPlayerList();
+        },
+
+        refreshPlayerList: function (e) {
+            Common.refreshPlayerList(e);
         },
 
         closeSelector: function (e) {

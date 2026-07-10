@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 ## Version 0.1.1
 ##
@@ -24,7 +24,7 @@ else
 fi
 
 clone_command() {
-    if git clone $clone_url $dir; then
+    if git clone -- "$clone_url" "$dir"; then
         echo "Cloned Popcorn Time successfully"
     else
         echo "Popcorn Time encountered an error and could not be cloned"
@@ -32,17 +32,19 @@ clone_command() {
     fi
 }
 
-if [ -e ".git/config" ]; then
-    dat=$(grep url .git/config)
-    case $dat in *popcorn*)
+git_dir="$(git rev-parse --git-dir 2>/dev/null)" || git_dir=".git"
+if [ -e "$git_dir"/config ]; then
+    dat="$(grep -- url "$git_dir"/config)"
+    case "$dat" in *popcorn*)
         echo "You appear to be inside of a Popcorn Time repository already, not cloning"
         clone_repo="False"
+        cd -- "$(dirname "$git_dir")" # otherwise yarn build might fail
         ;;
     *)
         try="True"
         tries=0
         while [ "$try" = "True" ]; do
-            read -p "Looks like we are inside a git repository, do you wish to clone inside it? (yes/no) [no] " rd_cln
+            read -r -p "Looks like we are inside a git repository, do you wish to clone inside it? (yes/no) [no] " rd_cln
             if [ -z "$rd_cln" ]; then
                 rd_cln='no'
             fi
@@ -57,7 +59,7 @@ if [ -e ".git/config" ]; then
             fi
         done
         if [ "$rd_cln" = "no" ]; then
-            echo "You appear to be inside of a Popcorn Time repository already, not cloning"
+            echo "Not cloning"
             clone_repo="False"
         else
             echo "You've chosen to clone inside the current directory"
@@ -67,7 +69,7 @@ if [ -e ".git/config" ]; then
 fi
 if [ "$clone_repo" = "True" ]; then
     echo "Cloning Popcorn Time"
-    read -p "Where do you wish to clone Popcorn Time to? [popcorn] " dir
+    read -r -p "Where do you wish to clone Popcorn Time to? [popcorn] " dir
     if [ -z "$dir" ]; then
         dir='popcorn'
     elif [ "$dir" = "/" ]; then
@@ -80,7 +82,7 @@ if [ "$clone_repo" = "True" ]; then
         try="True"
         tries=0
         while [ "$try" = "True" ]; do
-            read -p "Directory $dir already exists, do you wish to delete it and redownload? (yes/no) [no] " rd_ans
+            read -r -p "Directory $dir already exists, do you wish to delete it and redownload? (yes/no) [no] " rd_ans
             if [ -z "$rd_ans" ]; then
                 rd_ans='no'
             fi
@@ -98,7 +100,10 @@ if [ "$clone_repo" = "True" ]; then
             echo "Removing old directory"
             if [ "$dir" != "." ] || [ "$dir" != "$PWD" ]; then
                 echo "Cleaning up from inside the destination directory"
-                rm -rf $dir
+                if ! rm -rf -- "$dir"; then
+                 echo "Cannot delete the directory"
+                 exit 4
+                fi
             fi
             clone_command
         else
@@ -110,7 +115,9 @@ fi
 if [ -z "$dir" ]; then
     dir="."
 fi
-cd $dir
+
+cd -- "$dir"
+
 echo "Switched to $PWD"
 
 if [ "$rd_dep" = "yes" ]; then
@@ -124,10 +131,10 @@ fi
 
 if yarn build; then
     echo "Popcorn Time built successfully!"
-    if [[ `uname -s` != *"NT"* ]]; then # if not windows
+    if [[ ! "$(uname -s)" =~ "NT" ]]; then # if not windows
         ./Create-Desktop-Entry
     fi
-    echo "Run 'gulp run' from inside the repository to launch the app or check out under ./build folder..."
+    echo "Run 'yarn start' to launch the app or run Popcorn-Time from the ./build folder..."
     echo "Enjoy!"
 else
     echo "Popcorn Time encountered an error and couldn't be built"

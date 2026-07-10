@@ -144,25 +144,21 @@ App.onBeforeStart = function (options) {
 
   // reset app width when the width is bigger than the available width
   if (screen.availWidth < width) {
-    win.info('Window too big, resetting width');
     width = screen.availWidth;
   }
 
   // reset app height when the width is bigger than the available height
   if (screen.availHeight < height) {
-    win.info('Window too big, resetting height');
     height = screen.availHeight;
   }
 
   // reset x when the screen width is smaller than the window x-position + the window width
   if (x < 0 || x + width > screen.width) {
-    win.info('Window out of view, recentering x-pos');
     x = Math.round((screen.availWidth - width) / 2);
   }
 
   // reset y when the screen height is smaller than the window y-position + the window height
   if (y < 0 || y + height > screen.height) {
-    win.info('Window out of view, recentering y-pos');
     y = Math.round((screen.availHeight - height) / 2);
   }
 
@@ -176,15 +172,15 @@ var initTemplates = function () {
   var ts = [];
 
   _.each(document.querySelectorAll('[type="text/x-template"]'), function (el) {
-    var d = Q.defer();
-    $.get(el.src, function (res) {
-      el.innerHTML = res;
-      d.resolve(true);
-    });
-    ts.push(d.promise);
+    ts.push(new Promise((resolve, reject) => {
+      $.get(el.src, function (res) {
+        el.innerHTML = res;
+        resolve(true);
+      });
+    }));
   });
 
-  return Q.all(ts);
+  return Promise.all(ts);
 };
 
 var initApp = function () {
@@ -194,7 +190,7 @@ var initApp = function () {
   try {
     App.showView(mainWindow);
   } catch (e) {
-    console.error('Couldn\'t start app: ', e, e.stack);
+    win.error('Couldn\'t start app: ', e, e.stack);
   }
 
   if (localStorage.maximized === 'true') {
@@ -240,7 +236,6 @@ var deleteCookies = function () {
           if (!result.name) {
             result = result[0];
           }
-          win.debug('cookie removed: ' + result.name + ' ' + result.url);
         } else {
           win.error('cookie removal failed');
         }
@@ -250,17 +245,11 @@ var deleteCookies = function () {
 
   win.cookies.getAll({}, function (cookies) {
     if (cookies.length > 0) {
-      win.debug('Removing ' + cookies.length + ' cookies...');
       for (var i = 0; i < cookies.length; i++) {
         removeCookie(cookies[i]);
       }
     }
   });
-};
-
-var deleteCache = function () {
-  window.indexedDB.deleteDatabase('cache');
-  win.close(true);
 };
 
 var deleteLogs = function() {
@@ -270,9 +259,17 @@ var deleteLogs = function() {
   }
 };
 
+var posterZoom = function () {
+  var zoom = $('.show-detail-container').height() / $('.shp-img').height() * (0.75 + Settings.bigPicture / 2000);
+  var top = parseInt(($('.shp-img').height() * zoom - $('.shp-img').height()) / 2 + (3000 / Settings.bigPicture)) + 'px';
+  var left = parseInt(($('.shp-img').width() * zoom - $('.shp-img').width()) / 2 + (2000 / Settings.bigPicture)) + 'px';
+  $('.sh-poster.active').css({transform: 'scale(' + zoom + ')', top: top, left: left});
+};
+
 win.on('resize', function (width, height) {
   localStorage.width = Math.round(width);
   localStorage.height = Math.round(height);
+  $('.sh-poster').hasClass('active') ? posterZoom() : null;
 });
 
 win.on('move', function (x, y) {
@@ -282,29 +279,31 @@ win.on('move', function (x, y) {
 
 win.on('enter-fullscreen', function () {
   App.vent.trigger('window:focus');
-  if (!Settings.nativeWindowFrame) {
+  if (!Settings.nativeWindowFrame && parseFloat(process.versions['node-webkit'].replace('0.', '')) <= 50) {
     win.setResizable(false);
   }
 });
 
 win.on('leave-fullscreen', function () {
-  if (!Settings.nativeWindowFrame) {
+  if (!Settings.nativeWindowFrame && parseFloat(process.versions['node-webkit'].replace('0.', '')) <= 50) {
     win.setResizable(true);
   }
 });
 
 win.on('maximize', function () {
-  if (!Settings.nativeWindowFrame) {
+  if (!Settings.nativeWindowFrame && parseFloat(process.versions['node-webkit'].replace('0.', '')) <= 50) {
     win.setResizable(false);
   }
   localStorage.maximized = true;
+  $('.sh-poster').hasClass('active') ? posterZoom() : null;
 });
 
 win.on('restore', function () {
-  if (!Settings.nativeWindowFrame) {
+  if (!Settings.nativeWindowFrame && parseFloat(process.versions['node-webkit'].replace('0.', '')) <= 50) {
     win.setResizable(true);
   }
   localStorage.maximized = false;
+  $('.sh-poster').hasClass('active') ? posterZoom() : null;
 });
 
 // Now this function is used via global keys (cmd+q and alt+f4)
@@ -346,7 +345,7 @@ function close() {
             deleteFolder(App.settings.downloadsLocation + '/TorrentCache/');
           }
           deleteLogs();
-          deleteCache();
+          win.close(true);
         } catch (err) {
           return onError(err);
         }
@@ -441,7 +440,6 @@ window.ondragenter = function (e) {
   mask.show();
   mask.on('dragenter', function (e) {
     $('.drop-indicator').show();
-    win.debug('Drag init');
   });
   mask.on('dragover', function (e) {
     var showDrag = true;
@@ -452,7 +450,6 @@ window.ondragenter = function (e) {
     clearTimeout(timeout);
     timeout = setTimeout(function () {
       if (!showDrag) {
-        win.debug('Drag aborted');
         $('.drop-indicator').hide();
         $('#drop-mask').hide();
       }
@@ -526,26 +523,37 @@ var isVideo = function (file) {
 };
 
 var handleVideoFile = function (file) {
+  var vjsPlayer = document.getElementById('video_player');
+  if (vjsPlayer) {
+    videojs(vjsPlayer).dispose();
+  }
+  App.vent.trigger('settings:close');
+  App.vent.trigger('about:close');
+  App.vent.trigger('keyboard:close');
+  App.vent.trigger('stream:stop');
+  App.vent.trigger('player:close');
+  App.vent.trigger('torrentcache:stop');
+  App.vent.trigger('preload:stop');
   $('.spinner').show();
 
   // look for local subtitles
   var checkSubs = function () {
+    var _dir = file.path.replace(/\\/g, '/');
+    _dir = _dir.substr(0, _dir.lastIndexOf('/'));
     var _ext = path.extname(file.name);
-    var toFind = file.path.replace(_ext, '.srt');
-
-    if (fs.existsSync(path.join(toFind))) {
-      return {
-        local: path.join(toFind)
-      };
-    } else {
-      return null;
-    }
+    var _filename = file.name.replace(_ext, '');
+    var found = null;
+    fs.readdirSync(_dir).forEach(file => {
+      if (file.includes(_filename) && file.endsWith('.srt')) {
+        return found = { local: path.join(_dir, file) };
+      }
+    });
+    return found;
   };
 
   // get subtitles from provider
   var getSubtitles = function (subdata) {
-    return Q.Promise(function (resolve, reject) {
-      win.debug('Subtitles data request:', subdata);
+    return new Promise(function (resolve, reject) {
 
       var subtitleProvider = App.Config.getProviderForType('subtitle');
 
@@ -556,7 +564,6 @@ var handleVideoFile = function (file) {
             win.info(Object.keys(subs).length + ' subtitles found');
             resolve(subs);
           } else {
-            win.warn('No subtitles returned');
             if (Settings.subtitle_language !== 'none') {
               App.vent.trigger(
                 'notification:show',
@@ -668,17 +675,16 @@ var handleVideoFile = function (file) {
         if (localsub !== null) {
           playObj.defaultSubtitle = 'local';
         } else {
-          playObj.defaultSubtitle = 'none';
+          playObj.defaultSubtitle = Settings.subtitle_language;
         }
         resolve(playObj);
       })
       .catch(function (err) {
-        win.warn('trakt.matcher.match error:', err);
         var localsub = checkSubs();
         if (localsub !== null) {
           playObj.defaultSubtitle = 'local';
         } else {
-          playObj.defaultSubtitle = 'none';
+          playObj.defaultSubtitle = Settings.subtitle_language;
         }
 
         if (!playObj.title) {
@@ -694,16 +700,34 @@ var handleVideoFile = function (file) {
     $('.spinner').hide();
 
     var localVideo = new Backbone.Model(play); // streamer model
-    console.debug(
-      'Trying to play local file',
-      localVideo.get('src'),
-      localVideo.attributes
-    );
 
-    var tmpPlayer = App.Device.Collection.selected.attributes.id;
-    App.Device.Collection.setDevice('local');
-    App.vent.trigger('stream:ready', localVideo); // start stream
-    App.Device.Collection.setDevice(tmpPlayer);
+    win.info('Loading local file:', localVideo.get('videoFile') || localVideo.get('src'));
+
+    const fileName = localVideo.get('src').replace(/\\/g, '/').split('/').pop();
+    var torrentStart = new Backbone.Model({
+      torrent: localVideo,
+      title: fileName,
+      defaultSubtitle: localVideo.defaultSubtitle || Settings.subtitle_language,
+      device: App.Device.Collection.selected,
+      video_file: {
+        name: fileName,
+        size: file.size,
+        index: 0,
+        path: localVideo.get('src')
+      },
+      files: [{
+        name: fileName,
+        size: file.size,
+        index: 0,
+        offset: 0,
+        length: file.size,
+        display: true,
+        done: true,
+        path: localVideo.get('src')
+      }]
+    });
+
+    App.vent.trigger('stream:start', torrentStart, 'local');
 
     $('.eye-info-player, .maximize-icon #maxdllb').hide();
     $('.vjs-load-progress').css('width', '100%');
@@ -716,13 +740,13 @@ var handleTorrent = function (torrent) {
   } catch (err) {
     // The player wasn't running
   }
+  Settings.importedTorrent = true;
   App.Config.getProviderForType('torrentCache').resolve(torrent);
 };
 
 window.ondrop = function (e) {
   e.preventDefault();
   $('#drop-mask').hide();
-  console.debug('Drag completed');
   $('.drop-indicator').hide();
 
   var file = e.dataTransfer.files[0];
@@ -790,6 +814,7 @@ if (
   last_arg &&
   (last_arg.substring(0, 8) === 'magnet:?' ||
     last_arg.substring(0, 7) === 'http://' ||
+    last_arg.substring(0, 8) === 'https://' ||
     last_arg.endsWith('.torrent'))
 ) {
   App.vent.on('app:started', function () {
@@ -808,105 +833,6 @@ if (last_arg && isVideo(last_arg)) {
   });
 }
 
-// VPN
-let subscribed = false;
-const subscribeEvents = () => {
-  const appInstalled = VPNht.isInstalled();
-  if (subscribed || !appInstalled) {
-    return;
-  }
-  try {
-    const vpnStatus = VPNht.status();
-
-    vpnStatus.on('connected', () => {
-      App.vent.trigger('vpn:connected');
-    });
-
-    vpnStatus.on('disconnected', () => {
-      App.vent.trigger('vpn:disconnected');
-    });
-
-    vpnStatus.on('error', error => {
-      console.log('ERROR', error);
-    });
-
-    subscribed = true;
-  } catch (error) {
-    console.log(error);
-    subscribed = false;
-  }
-};
-
-const checkVPNStatus = () => {
-  try {
-    const appInstalled = VPNht.isInstalled();
-    if (!appInstalled) {
-      return;
-    }
-
-    VPNht.isConnected().then(isConnected => {
-      console.log(isConnected);
-      if (isConnected) {
-        App.vent.trigger('vpn:connected');
-      }
-    });
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-App.vent.on('app:started', function () {
-  subscribeEvents();
-  checkVPNStatus();
-});
-
-App.vent.on('vpn:open', function () {
-  try {
-    const appInstalled = VPNht.isInstalled();
-    if (!appInstalled) {
-      App.vent.trigger('vpn:show');
-    } else {
-      VPNht.open();
-      subscribeEvents();
-    }
-  } catch (error) {
-    console.log(error);
-  }
-});
-
-App.vent.on('vpn:install', function () {
-  try {
-    const appInstalled = VPNht.isInstalled();
-    if (!appInstalled) {
-      VPNht.install().then(installer => {
-        installer.on('download', data => {
-          if (data && data.percent) {
-            App.vent.trigger('vpn:installProgress', data.percent);
-          }
-        });
-
-        installer.on('downloaded', () => {
-          App.vent.trigger('vpn:downloaded');
-        });
-
-        installer.on('installed', () => {
-          VPNht.open();
-          subscribeEvents();
-        });
-
-        installer.on('error', data => {
-          console.log(data);
-        });
-      });
-    } else {
-      VPNht.open();
-      subscribeEvents();
-    }
-  } catch (error) {
-    console.log(error);
-  }
-});
-
 nw.App.on('open', function (cmd) {
   var file;
   if (os.platform() === 'win32') {
@@ -919,8 +845,6 @@ nw.App.on('open', function (cmd) {
   }
 
   if (file) {
-    win.debug('File loaded:', file);
-
     if (isVideo(file)) {
       var fileModel = {
         path: file,

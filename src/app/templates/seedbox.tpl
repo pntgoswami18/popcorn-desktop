@@ -1,4 +1,10 @@
 <div class="seedbox-container">
+    <div class="spinner">
+        <div class="loading-container">
+            <div class="ball"></div>
+            <div class="ball1"></div>
+        </div>
+    </div>
     <div class="margintop"></div>
     <div class="content">
         <div class="seedbox-details">
@@ -41,6 +47,10 @@
                         </div>
                         <div class="progress">
                             <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="exit-when-done">
+                            <i class="fa fa-power-off"></i>
+                            <span><%= i18n.__('Exit when all downloads complete') %></span>
                         </div>
                     </div>
                 </div>

@@ -38,7 +38,7 @@
 
   function delProvider(name) {
     if (cache[name]) {
-      win.info('Delete provider cache', name);
+      win.info('Delete provider cache:', name);
       return delete cache[name];
     }
   }
@@ -61,7 +61,6 @@
       );
     }
 
-    win.debug('added', name, 'to provider registry');
     registry[name] = PO;
 
     return name;
@@ -105,7 +104,7 @@
       }
     }
 
-    win.info('Spawning new provider', name, config);
+    win.info('Spawning new provider:', name, config);
     var p = (cache[name] = new provider(config));
 
     //HACK(xaiki): set the provider name in the returned object.

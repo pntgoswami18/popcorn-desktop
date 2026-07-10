@@ -43,8 +43,9 @@ class YTSApi extends Generic {
             cover: movie.large_cover_image,
             backdrop: movie.background_image_original,
             poster: movie.large_cover_image,
+            poster_medium: movie.medium_cover_image,
             synopsis: movie.description_full,
-            trailer: 'https://www.youtube.com/watch?v=' + movie.yt_trailer_code || false,
+            trailer: movie.yt_trailer_code ? 'https://www.youtube.com/watch?v=' + movie.yt_trailer_code : false,
             certification: movie.mpa_rating,
             torrents: torrents,
             defaultAudio: curLang,
@@ -100,7 +101,7 @@ class YTSApi extends Generic {
     }
 
     const uri = `api/v2/list_movies.json?` + new URLSearchParams(params);
-    return this._get(0, uri).then((data) => this._formatForPopcorn(data.data.movies))
+    return this._get(0, uri).then((data) => this._formatForPopcorn(data.data.movies));
   }
 
   random() {}

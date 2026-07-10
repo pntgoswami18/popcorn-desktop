@@ -3,7 +3,6 @@ var Datastore = require('nedb-promises'),
     TTL = 1000 * 60 * 60 * 24;
 
 var startupTime = window.performance.now();
-console.debug('Database path: ' + data_path);
 
 db.bookmarks = new Datastore({
     filename: path.join(data_path, 'data/bookmarks.db'),
@@ -93,15 +92,15 @@ var Database = {
     },
 
     deleteBookmarks: function () {
-        return db.bookmarks.remove({}, {
-            multi: true
-        });
+        try { fs.unlinkSync(path.join(data_path, 'data/movies.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/shows.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/bookmarks.db')); } catch (error) {}
+        return Promise.resolve();
     },
 
     deleteWatched: function () {
-        return db.watched.remove({}, {
-            multi: true
-        });
+        try { fs.unlinkSync(path.join(data_path, 'data/watched.db')); } catch (error) {}
+        return Promise.resolve();
     },
 
     // format: {page: page, keywords: title}
@@ -116,6 +115,20 @@ var Database = {
         }
 
         return db.bookmarks.find(query).skip(offset).limit(byPage);
+    },
+
+    // format: {page: page, keywords: title}
+    getWatched: function (data) {
+        var page = data.page - 1;
+        var byPage = 500;
+        var offset = page * byPage;
+        var query = {};
+
+        if (data.type) {
+            query.type = data.type;
+        }
+
+        return db.watched.find(query).skip(offset).limit(byPage);
     },
 
     getAllBookmarks: function () {
@@ -320,9 +333,8 @@ var Database = {
     },
 
     resetSettings: function () {
-        return db.settings.remove({}, {
-            multi: true
-        });
+        try { fs.unlinkSync(path.join(data_path, 'data/settings.db')); } catch (error) {}
+        return Promise.resolve();
     },
 
     applyDhtSettings: function (dhtInfo) {
@@ -337,12 +349,10 @@ var Database = {
             Settings.issuesUrl = dhtInfo.git + 'issues';
             Settings.sourceUrl = dhtInfo.git;
             Settings.commitUrl = dhtInfo.git + 'commit';
-            Settings.projectCi = dhtInfo.git + 'actions';
             Settings.projectBlog = dhtInfo.git + 'wiki';
         }
         if (dhtInfo.site) {
             Settings.projectUrl = dhtInfo.site;
-            dhtInfo.d ? Settings.projectForum2 = dhtInfo.site.split('//')[0] + '//discuss.' + dhtInfo.site.split('//')[1] : null;
             dhtInfo.s ? Settings.statusUrl = dhtInfo.site.split('//')[0] + '//status.' + dhtInfo.site.split('//')[1] : null;
         }
         if (dhtInfo.keys) {
@@ -358,27 +368,12 @@ var Database = {
     },
 
     deleteDatabases: function () {
-
-        fs.unlinkSync(path.join(data_path, 'data/watched.db'));
-
-        fs.unlinkSync(path.join(data_path, 'data/movies.db'));
-
-        fs.unlinkSync(path.join(data_path, 'data/bookmarks.db'));
-
-        fs.unlinkSync(path.join(data_path, 'data/shows.db'));
-
-        fs.unlinkSync(path.join(data_path, 'data/settings.db'));
-
-        return new Promise(function (resolve, reject) {
-            var req = indexedDB.deleteDatabase(App.Config.cache.name);
-            req.onsuccess = function () {
-                resolve();
-            };
-            req.onerror = function () {
-                resolve();
-            };
-        });
-
+        try { fs.unlinkSync(path.join(data_path, 'data/watched.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/movies.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/bookmarks.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/shows.db')); } catch (error) {}
+        try { fs.unlinkSync(path.join(data_path, 'data/settings.db')); } catch (error) {}
+        return Promise.resolve();
     },
 
     initialize: function () {
@@ -420,10 +415,6 @@ var Database = {
                 App.vent.trigger('initHttpApi');
                 App.vent.trigger('db:ready');
                 App.vent.trigger('stream:loadExistTorrents');
-
-                /*return AdvSettings.checkApiEndpoints([
-                    Settings.updateEndpoint
-                ]);*/
             })
             .then(function () {
                 // set app language
@@ -435,15 +426,6 @@ var Database = {
             })
             .then(function () {
                 App.Trakt = App.Config.getProviderForType('metadata');
-                if (Settings.automaticUpdating === false) {
-                    return;
-                }
-                // check update
-                var updater = new App.Updater();
-                updater.update()
-                    .catch(function (err) {
-                        win.error('updater.update()', err);
-                    });
             })
             .then(function () {
                 if (Settings.protocolEncryption) {
@@ -457,7 +439,7 @@ var Database = {
             })
             .then(function () {
                 if (AdvSettings.get('disclaimerAccepted')) {
-                    App.DhtReader.updateOld();
+                    App.Updater.updateDHTOld();
                     if (Settings.updateNotification) {
                         App.Updater.onlyNotification();
                     }

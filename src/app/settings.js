@@ -1,11 +1,9 @@
 /** Default settings **/
 var Settings = {
   projectName: 'Popcorn Time',
-  projectUrl: 'https://popcorntime.app',
-  projectCi: 'https://github.com/popcorn-official/popcorn-desktop/actions',
+  projectUrl: '',
   projectBlog: 'https://github.com/popcorn-official/popcorn-desktop/wiki',
   projectForum: 'https://www.reddit.com/r/PopcornTimeApp',
-  projectForum2: 'https://discuss.popcorntime.app',
   statusUrl: 'https://status.popcorntime.app',
   changelogUrl: 'https://github.com/popcorn-official/popcorn-desktop/commits/master',
   issuesUrl: 'https://github.com/popcorn-official/popcorn-desktop/issues',
@@ -74,22 +72,17 @@ Settings.trackers = {
   blacklisted: ['demonii'],
   forced: [
     'udp://tracker.opentrackr.org:1337',
-    'udp://tracker.tiny-vps.com:6969',
     'udp://tracker.openbittorrent.com:1337',
-    'udp://tracker.leechers-paradise.org:6969',
     'udp://p4p.arenabg.com:1337',
-    'udp://tracker.internetwarriors.net:1337',
-    'udp://9.rarbg.to:2710',
-    'udp://9.rarbg.me:2710',
     'udp://exodus.desync.com:6969',
-    'udp://tracker.cyberia.is:6969',
     'udp://tracker.torrent.eu.org:451',
+    'udp://tracker-udp.gbitt.info:80',
     'udp://open.stealth.si:80',
-    'udp://tracker.moeking.me:6969',
-    'udp://tracker.zerobytes.xyz:1337',
+    'udp://tracker.dler.org:6969',
     'udp://explodie.org:6969',
-    'udp://retracker.lanta-net.ru:2710',
-    'udp://opentracker.i2p.rocks:6969',
+    'udp://tracker.therarbg.to:6969',
+    'udp://tracker.bittor.pw:1337',
+    'udp://tr4ck3r.duckdns.org:6969',
     'wss://tracker.openwebtorrent.com'
   ]
 };
@@ -102,7 +95,9 @@ Settings.moviesTabEnable = true;
 Settings.seriesTabEnable = true;
 Settings.animeTabEnable = true;
 Settings.favoritesTabEnable = true;
+Settings.watchedTabEnable = true;
 Settings.coversShowRating = true;
+Settings.alwaysShowBookmarks = false;
 Settings.showSeedboxOnDlInit = true;
 Settings.expandedSearch = false;
 Settings.defaultFilters = 'default';
@@ -116,6 +111,8 @@ Settings.postersSizeRatio = 196 / 134;
 Settings.postersWidth = Settings.postersMinWidth;
 Settings.postersJump = [134, 154, 174, 194, 214, 234, 254, 274, 294];
 Settings.bigPicture = 100;
+Settings.moviesUITransparency = '0.65';
+Settings.seriesUITransparency = 'medium';
 Settings.nativeWindowFrame = nw.App.manifest.window.frame;
 Settings.alwaysOnTop = false;
 Settings.minimizeToTray = false;
@@ -167,8 +164,8 @@ Settings.activateTorrentCollection = true;
 Settings.toggleSengines = false;
 Settings.enableThepiratebaySearch = true;
 Settings.enable1337xSearch = true;
-Settings.enableRarbgSearch = true;
-Settings.enableTgxtorrentSearch = true;
+Settings.enableSolidTorrentsSearch = true;
+Settings.enableTgxtorrentSearch = false;
 Settings.enableNyaaSearch = true;
 Settings.activateSeedbox = true;
 Settings.activateTempf = true;
@@ -180,9 +177,13 @@ Settings.httpApiUsername = 'popcorn';
 Settings.httpApiPassword = 'popcorn';
 
 // API Server(s)
-Settings.customMoviesServer = '';
-Settings.customSeriesServer = '';
-Settings.customAnimeServer = '';
+// NOTE: keep each list to a single API family. The mirrors below all serve
+// the standard Popcorn Time API (movies/series/anime). Do not mix in YTS
+// mirrors (e.g. yts.bz): a '://yts' substring switches the movies provider
+// to YTSApi, which uses a different API schema than these mirrors.
+Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.dhtEnable = '';
 
 // Connection
@@ -210,8 +211,7 @@ Settings.downloadsLocation = path.join(os.tmpdir(), Settings.projectName);
 Settings.databaseLocation = path.join(data_path, 'data');
 
 // Updates
-Settings.updateNotification = true;
-Settings.automaticUpdating = '';
+Settings.updateNotification = '';
 
 // App Settings
 Settings.version = false;
@@ -310,162 +310,12 @@ var AdvSettings = {
         break;
     }
 
-    return Q();
-  },
-
-  getNextApiEndpoint: function(endpoint) {
-    if (endpoint.index < endpoint.proxies.length - 1) {
-      endpoint.index++;
-    } else {
-      endpoint.index = 0;
-    }
-    endpoint.ssl = undefined;
-    _.extend(endpoint, endpoint.proxies[endpoint.index]);
-    return endpoint;
-  },
-
-  checkApiEndpoints: function(endpoints) {
-    return Q.all(
-      _.map(endpoints, function(endpoint) {
-        return AdvSettings.checkApiEndpoint(endpoint);
-      })
-    );
-  },
-
-  checkApiEndpoint: function(endpoint, defer) {
-    if (Settings.automaticUpdating === false) {
-      return;
-    }
-
-    defer = defer || Q.defer();
-
-    endpoint.ssl = undefined;
-    _.extend(endpoint, endpoint.proxies[endpoint.index]);
-
-    var _url = url.parse(endpoint.url);
-    win.debug('Checking %s endpoint', _url.hostname);
-
-    function tryNextEndpoint() {
-      if (endpoint.index < endpoint.proxies.length - 1) {
-        endpoint.index++;
-        AdvSettings.checkApiEndpoint(endpoint, defer);
-      } else {
-        endpoint.index = 0;
-        endpoint.ssl = undefined;
-        _.extend(endpoint, endpoint.proxies[endpoint.index]);
-        defer.resolve();
-      }
-    }
-
-    if (endpoint.ssl === false) {
-      var request = http
-        .get(
-          {
-            hostname: _url.hostname
-          },
-          function(res) {
-            res
-              .once('data', function(body) {
-                res.removeAllListeners('error');
-                // Doesn't match the expected response
-                if (
-                  !_.isRegExp(endpoint.fingerprint) ||
-                  !endpoint.fingerprint.test(body.toString('utf8'))
-                ) {
-                  win.warn(
-                    '[%s] Endpoint fingerprint %s does not match %s',
-                    _url.hostname,
-                    endpoint.fingerprint,
-                    body.toString('utf8')
-                  );
-                  tryNextEndpoint();
-                } else {
-                  defer.resolve();
-                }
-              })
-              .once('error', function(e) {
-                win.warn('[%s] Endpoint failed [%s]', _url.hostname, e.message);
-                tryNextEndpoint();
-              });
-          }
-        )
-        .setTimeout(5000, function() {
-          win.warn('[%s] Endpoint timed out', _url.hostname);
-          request.abort();
-          tryNextEndpoint();
-        });
-    } else {
-      tls
-        .connect(
-          443,
-          _url.hostname,
-          {
-            servername: _url.hostname,
-            rejectUnauthorized: false
-          },
-          function() {
-            this.setTimeout(0);
-            this.removeAllListeners('error');
-            if (
-              !this.authorized ||
-              this.authorizationError ||
-              this.getPeerCertificate().fingerprint !== endpoint.fingerprint
-            ) {
-              // "These are not the certificates you're looking for..."
-              // Seems like they even got a certificate signed for us :O
-              win.warn(
-                '[%s] Endpoint fingerprint %s does not match %s',
-                _url.hostname,
-                endpoint.fingerprint,
-                this.getPeerCertificate().fingerprint
-              );
-              tryNextEndpoint();
-            } else {
-              defer.resolve();
-            }
-            this.end();
-          }
-        )
-        .once('error', function(e) {
-          win.warn('[%s] Endpoint failed [%s]', _url.hostname, e.message);
-          this.setTimeout(0);
-          tryNextEndpoint();
-        })
-        .once('timeout', function() {
-          win.warn('[%s] Endpoint timed out', _url.hostname);
-          this.removeAllListeners('error');
-          this.end();
-          tryNextEndpoint();
-        })
-        .setTimeout(5000);
-    }
-
-    return defer.promise;
+    return Promise.resolve(true);
   },
 
   performUpgrade: function() {
     // This gives the official version (the package.json one)
-    var currentVersion = nw.App.manifest.version;
-
-    if (currentVersion !== AdvSettings.get('version')) {
-      // Nuke the DB if there's a newer version
-      // Todo: Make this nicer so we don't lose all the cached data
-      var cacheDb = openDatabase(
-        'cachedb',
-        '',
-        'Cache database',
-        50 * 1024 * 1024
-      );
-
-      cacheDb.transaction(function(tx) {
-        tx.executeSql('DELETE FROM subtitle');
-        tx.executeSql('DELETE FROM metadata');
-      });
-
-      // Add an upgrade flag
-      window.__isUpgradeInstall = true;
-    }
-    AdvSettings.set('version', currentVersion);
+    AdvSettings.set('version', nw.App.manifest.version);
     AdvSettings.set('releaseName', nw.App.manifest.releaseName);
   }
 };

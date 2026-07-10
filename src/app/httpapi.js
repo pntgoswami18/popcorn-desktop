@@ -13,7 +13,7 @@
     }
 
     var initServer = function () {
-        return Q.Promise(function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             server = rpc.Server({
                 'headers': { // allow custom headers is empty by default
                     'Access-Control-Allow-Origin': '*'
@@ -36,14 +36,12 @@
 
                 //Do a small delay before sending data in case there are more simultaneous events
                 var reinitTimeout = function () {
-                    win.debug('HttpAPI: reinitTimeout');
                     //Only do a delay if the request won't time out in the meantime
                     if (startTime + 8000 - (new Date()).getTime() > 250) {
                         if (timeout) {
                             clearTimeout(timeout);
                         }
                         timeout = setTimeout(emitEvents, 200);
-                        win.debug('HttpAPI: setTimeout');
                     }
                 };
 

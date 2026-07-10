@@ -7,6 +7,10 @@
         totalSize,
         totalDownloaded,
         totalPer,
+        exitWhenDoneBtn,
+        exitWhenDoneStatus,
+        exitWhenDoneTimer,
+        exitWhenDoneInt,
         updateInterval;
 
     const supported = ['.mp4', '.m4v', '.avi', '.mov', '.mkv', '.wmv'];
@@ -37,7 +41,8 @@
             'mousedown .seedbox-infos-title, .file-item a, .episodeData div': 'copytoclip',
             'click .item-play': 'addItem',
             'click .item-download': 'addItem',
-            'click .item-remove': 'removeItem'
+            'click .item-remove': 'removeItem',
+            'click .exit-when-done': 'exitWhenDone'
         },
 
         initialize: function () {
@@ -61,7 +66,9 @@
                 let currentHash;
                 try { currentHash = App.LoadingView.model.attributes.streamInfo.attributes.torrentModel.attributes.torrent.infoHash; } catch(err) {}
                 currentHash && $('#trash-'+currentHash)[0] ? $('#trash-'+currentHash).addClass('disabled').prop('disabled', true) : null;
+                $('.seedbox .exit-when-done').addClass('disabled');
             }
+            exitWhenDoneStatus ? $('.seedbox .exit-when-done').addClass('active') : $('.seedbox .exit-when-done').removeClass('active');
         },
 
         onRender: function () {
@@ -90,7 +97,7 @@
         isTorrentInList: torrent => Boolean(document.getElementById(torrent.infoHash)),
 
         addTorrentToList(torrent) {
-            $('.notorrents-info').hide();
+            $('.seedbox .notorrents-info').hide();
             let className = 'tab-torrent';
             if ($('.tab-torrent.active').length <= 0) {
                 className += ' active';
@@ -99,14 +106,14 @@
                 `<li class="${className}" id="${torrent.infoHash}" data-season="" data-episode="">
                 <a href="#" class="episodeData">
                     <span>
-                        <i class="fa fa-pause watched pause-torrent tooltipped" id="resume-${torrent.infoHash}" style="display: ${torrent.paused ? 'none' : ''};"></i>
-                        <i class="fa fa-play watched resume-torrent tooltipped" id="play-${torrent.infoHash}" style="display: ${torrent.paused ? '' : 'none'};"></i>
+                        <i class="fa fa-pause watched pause-torrent tooltipped" id="resume-${torrent.infoHash}" title="Pause" data-toggle="tooltip" data-container="body" data-placement="top" style="display: ${torrent.paused ? 'none' : ''};"></i>
+                        <i class="fa fa-play watched resume-torrent tooltipped" id="play-${torrent.infoHash}" title="Resume" data-toggle="tooltip" data-container="body" data-placement="top" style="display: ${torrent.paused ? '' : 'none'};"></i>
                     </span>
                     <div id="title-${torrent.infoHash}">${App.plugins.mediaName.getMediaName(torrent)}</div>
                 </a>
-                <i class="fa fa-download watched" id="download-${torrent.infoHash}" style="margin-right:6px">0 Kb/s</i>
+                <i class="fa fa-download watched" id="download-${torrent.infoHash}" style="margin-right:14px">0 Kb/s</i>
                 <i class="fa fa-upload watched" id="upload-${torrent.infoHash}">0 Kb/s</i>
-                <i class="fa fa-trash watched trash-torrent tooltipped" id="trash-${torrent.infoHash}" title="Remove" data-toggle="tooltip" data-placement="left" style="margin-left: 14px;"></i>
+                <i class="fa fa-trash watched trash-torrent tooltipped" id="trash-${torrent.infoHash}" title="Remove" data-toggle="tooltip" data-container="body" data-placement="top" style="margin-left: 15px;"></i>
               </li>`
             );
             $('.seedbox-overview').show();
@@ -201,6 +208,7 @@
 
         onRemoveTorrentClicked(e) {
             try { e.stopPropagation(); } catch(err) {}
+            $('.tooltipped').tooltip('hide');
             const torrent = this.getTorrentFromEvent(e.currentTarget);
             if (torrent) {
                 if (App.settings.delSeedboxCache === 'always') {
@@ -248,8 +256,8 @@
                     }
                 });
                 $(`#${torrent.infoHash}`).remove();
-                if ($('.tab-torrent').length <= 0) {
-                    $('.notorrents-info').show();
+                if ($('.seedbox-torrents .tab-torrent').length <= 0) {
+                    $('.seedbox-torrents .notorrents-info').show();
                     $('.seedbox-overview').hide();
                 }
             }
@@ -269,18 +277,19 @@
             this.updateView($(e.currentTarget), true /*wasJustSelected*/);
         },
 
-        copytoclip: (e) => Common.openOrClipboardLink(e, $(e.target)[0].textContent, ($(e.target)[0].className || $(e.target)[0].id ? i18n.__('title') : i18n.__('filename')), true),
+        copytoclip: (e) => Common.openOrClipboardLink(e, $(e.target)[0].textContent, (($(e.target)[0].className && $(e.target)[0].className !== 'tooltipped') || $(e.target)[0].id ? i18n.__('title') : i18n.__('filename')), true),
 
         openItem: function (e) {
             const hash = $('.tab-torrent.active')[0].getAttribute('id');
             const torrent = App.WebTorrent.torrents.find(torrent => torrent.infoHash === hash);
             const filename = e.target.childNodes[1] ? e.target.childNodes[1].innerHTML : e.target.innerHTML;
-            const location = torrent.files.filter(obj => { return obj.name === filename; })[0].path.replace(/[^\\/]*$/, '');
+            const location = path.join(torrent.path, torrent.files.filter(obj => { return obj.name === filename; })[0].path.replace(/[^\\/]*$/, ''));
             App.settings.os === 'windows' ? nw.Shell.openExternal(location) : nw.Shell.openItem(location);
         },
 
         addItem: function (e) {
             e.stopPropagation();
+            $('.tooltipped').tooltip('hide');
             const target = $(e.target);
             const oldScroll = $('.seedbox-infos-synopsis').scrollTop();
             const hash = $('.tab-torrent.active')[0].getAttribute('id');
@@ -306,6 +315,7 @@
                 if (target.hasClass('item-play')) {
                     $('#trash-'+hash).addClass('disabled').prop('disabled', true);
                     $('.seedbox .item-play').addClass('disabled').prop('disabled', true);
+                    $('.seedbox .exit-when-done').addClass('disabled');
                 } else if (isPaused) {
                     this.pauseTorrent(thisTorrent);
                 }
@@ -315,6 +325,7 @@
 
         removeItem: function (e) {
             e.stopPropagation();
+            $('.tooltipped').tooltip('hide');
             const hash = $('.tab-torrent.active')[0].getAttribute('id');
             const oldScroll = $('.seedbox-infos-synopsis').scrollTop();
             const thisTorrent = App.WebTorrent.torrents.find(torrent => torrent.infoHash === hash);
@@ -331,6 +342,59 @@
                     }
                 }, 100);
             }
+        },
+
+        exitWhenDone: function () {
+            clearInterval(exitWhenDoneInt);
+            clearInterval(exitWhenDoneTimer);
+            exitWhenDoneBtn = $('.seedbox .exit-when-done');
+            App.vent.trigger('notification:close');
+            if (exitWhenDoneBtn.hasClass('active')) {
+                exitWhenDoneStatus = false;
+                exitWhenDoneBtn.removeClass('active');
+                return;
+            }
+            exitWhenDoneStatus = true;
+            exitWhenDoneBtn.addClass('active');
+            exitWhenDoneInt = window.setInterval(function () {
+                var torrents = App.WebTorrent.torrents;
+                var doneTorrents = 0;
+                for (const i in torrents) {
+                    torrents[i].done || !torrents[i].done && torrents[i].paused ? doneTorrents++ : null;
+                }
+                if (!$('.loading').is(':visible') && !$('.player').is(':visible') && torrents.length === doneTorrents) {
+                    clearInterval(exitWhenDoneInt);
+                    if (torrents.length === 0) {
+                        exitWhenDoneStatus = false;
+                        exitWhenDoneBtn.removeClass('active');
+                        return;
+                    }
+                    var exittime = new Date().getTime() + 30000;
+                    exitWhenDoneTimer = setInterval(function () {
+                        var timeleft = Math.round((exittime - new Date().getTime()) / 1000);
+                        if (timeleft <= 0) {
+                            win.close(true);
+                        } else if (timeleft <= 1) {
+                            $('#notification .notificationWrapper #timerunit').html(i18n.__('second'));
+                        }
+                        $('#notification .notificationWrapper #timer').html(timeleft);
+                    }, 1000);
+                    var abortExit = (function () {
+                        this.clearInterval(exitWhenDoneTimer);
+                        exitWhenDoneStatus = false;
+                        $('.seedbox .exit-when-done').removeClass('active');
+                        App.vent.trigger('notification:close');
+                    }.bind(this));
+                    var notificationModel = new App.Model.Notification({
+                        title: '',
+                        body: '<br><font size=4>' + i18n.__('Exiting Popcorn Time...') + '</font><br>(' + i18n.__('does not clear the Cache Folder') + ')<br><br>' + '<span id="timer">30</span> ' + '<span id="timerunit">' + i18n.__('seconds') + '</span> ' + i18n.__('left to cancel this action') + '<br><br>',
+                        type: 'danger',
+                        showClose: false,
+                        buttons: [{ title: i18n.__('Exit Now'), action: function () { win.close(true); } }, { title: i18n.__('Cancel'), action: abortExit }]
+                    });
+                    App.vent.trigger('notification:show', notificationModel);
+                }
+            }, 10000);
         },
 
         openMagnet: function (e) {
@@ -393,7 +457,7 @@
             const torrent = App.WebTorrent.get(infoHash);
             if (wasJustSelected) {
                 this.updateHealth(torrent);
-                const $fileList = $('.torrents-info > ul.file-list');
+                const $fileList = $('.seedbox-infos-synopsis .torrents-info > ul.file-list');
                 $fileList.empty();
                 try {
                     torrent.files.sort(function(a, b){
@@ -413,30 +477,27 @@
                     if (!file.hidden && (file.done || torrent._selections.some(function (el) { return el.from === file._startPiece || el.to === file._endPiece; }))) {
                         selected = true;
                     }
-                    $fileList.append(`<li class="file-item tooltipped${ selected ? '' : ' unselected' }" title="${file.name}" data-placement="left">
-                        <a>${file.name}</a>
-                        <i class="fa fa-play item-play"></i>
-                        <i class="fa fa-download item-download"${ selected ? ' style="display:none"' : '' }></i>
-                        <i class="fa fa-trash item-remove"${ selected ? '' : ' style="display:none"' }></i>
+                    $fileList.append(`<li class="file-item tooltipped${ selected ? '' : ' unselected' }">
+                        <a class="tooltipped" data-titleholder="${file.name.replace(/\./g, '.\u200B')}" data-container="body" data-toggle="tooltip" data-placement="top" onmouseenter="if (this.offsetWidth < this.scrollWidth) { $(this).attr('data-original-title', $(this).attr('data-titleholder')); } else { $(this).attr('data-original-title', ''); }">${file.name}</a>
+                        <i class="fa fa-play item-play tooltipped" title="Watch Now" data-container="body" data-toggle="tooltip" data-placement="left"></i>
+                        <i class="fa fa-download item-download tooltipped" title="Download" data-container="body" data-toggle="tooltip" data-placement="top"${ selected ? ' style="display:none"' : '' }></i>
+                        <i class="fa fa-trash item-remove tooltipped" title="Remove" data-container="body" data-toggle="tooltip" data-placement="top"${ selected ? '' : ' style="display:none"' }></i>
                         <span class="filesize">${Common.fileSize(file.length)}</span>
                     </li>`);
                 }
                 if (totalfiles < 2) {
-                    $('.file-item a').css('width', 'calc(100% - 22px)');
-                    $('.file-item .filesize').css('display', 'none');
+                    $('.seedbox .file-item a').css('width', 'calc(100% - 22px)');
+                    $('.seedbox .file-item .filesize').css('display', 'none');
                 }
                 if (active) {
                     $('.seedbox .item-play').addClass('disabled').prop('disabled', true);
                 }
-                $('.file-item').tooltip({
+                $('.seedbox .file-item a, .seedbox .item-play, .seedbox .item-download, .seedbox .item-remove').tooltip({
                     html: true,
                     delay: {
                         'show': 800,
                         'hide': 100
                     }
-                });
-                $('.item-play, .item-download, .item-remove').hover(function(){
-                    $('.file-item').tooltip('hide');
                 });
             }
             totalSize = 0;

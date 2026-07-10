@@ -2,6 +2,7 @@
   'use strict';
 
   var self;
+  const fs = require('fs');
 
   // Supports both IPv4 and IPv6 comparison
   var _sequentialPartsInCommon = function(ip1, ip2) {
@@ -24,24 +25,29 @@
     });
   };
 
-  var Device = Backbone.Model.extend({
-    defaults: {
-      id: 'local',
-      type: 'local',
-      typeFamily: 'internal',
-      name: 'Popcorn Time'
-    },
-    play: function(streamModel) {
+  class Device extends Backbone.Model {
+    constructor(attrs) {
+      super(Object.assign({
+        id: 'local',
+        type: 'local',
+        typeFamily: 'internal',
+        name: 'Popcorn Time'
+      }, attrs));
+    }
+    play(streamModel) {
       App.vent.trigger('stream:local', streamModel);
-    },
-    getID: function() {
+    }
+    getID() {
       return this.id;
     }
-  });
+    static scan() {
+    }
+  }
 
-  var DeviceCollection = Backbone.Collection.extend({
-    selected: 'local',
-    initialize: function() {
+  class DeviceCollection extends Backbone.Collection {
+
+    initialize() {
+      this.selected = 'local';
       App.vent.on('device:list', this.list);
       App.vent.on('device:pause', this.pause);
       App.vent.on('device:unpause', this.unpause);
@@ -53,40 +59,41 @@
       App.vent.on('device:seekPercentage', this.seekPercentage);
       App.vent.on('device:status:update', this.updateStatus);
       self = this;
-    },
-    list: function() {
+    }
+
+    list() {
       _.each(self.models, function(device) {
         App.vent.trigger('device:add', device);
       });
-    },
-    pause: function() {
+    }
+    pause() {
       self.selected.pause();
-    },
-    unpause: function() {
+    }
+    unpause() {
       self.selected.unpause();
-    },
-    stop: function() {
+    }
+    stop() {
       self.selected.stop();
-    },
-    forward: function() {
+    }
+    forward() {
       self.selected.forward();
-    },
-    backward: function() {
+    }
+    backward() {
       self.selected.backward();
-    },
-    seek: function(seconds) {
+    }
+    seek(seconds) {
       self.selected.seekBy(seconds);
-    },
-    seekTo: function(newCurrentTime) {
+    }
+    seekTo(newCurrentTime) {
       self.selected.seekTo(newCurrentTime);
-    },
-    seekPercentage: function(percentage) {
+    }
+    seekPercentage(percentage) {
       self.selected.seekPercentage(percentage);
-    },
-    updateStatus: function() {
+    }
+    updateStatus() {
       self.selected.updateStatus();
-    },
-    startDevice: function(streamModel) {
+    }
+    startDevice(streamModel) {
       if (!this.selected) {
         this.selected = this.models[0];
       }
@@ -96,7 +103,6 @@
        * best matching IP among all network adapters. Supports IPv4 and IPv6.
        */
       if (this.selected.get('typeFamily') === 'external') {
-        //console.warn('External Device ', this.selected);
         var ips = [],
           ifaces = os.networkInterfaces();
         for (var dev in ifaces) {
@@ -117,14 +123,14 @@
         );
       }
       return this.selected.play(streamModel);
-    },
+    }
 
-    setDevice: function(deviceID) {
+    setDevice(deviceID) {
       this.selected = this.findWhere({
         id: deviceID
       });
     }
-  });
+  }
 
   var collection = new DeviceCollection(new Device());
   collection.setDevice('local');
@@ -162,8 +168,49 @@
   };
 
   App.Device = {
-    Generic: Device,
     Collection: collection,
+    Loaders: {
+      Device: Device,
+    },
+    rescan: function () {
+      App.Device.Collection.reset();
+      App.Device.Collection.add(new Device());
+      for (const i in App.Device.Loaders) {
+        if (App.Device.Loaders.hasOwnProperty(i)) {
+          App.Device.Loaders[i].scan();
+        }
+      }
+    },
+    loadDeviceSupport: function() {
+      var providerPath = './src/app/lib/device/';
+      var files = fs.readdirSync(providerPath);
+      var head = document.getElementsByTagName('head')[0];
+      return files
+          .map(function(file) {
+            if (!file.match(/\.js$/) || file.match(/generic.js$/) || file.match(/xbmc.js$/)) {
+              return null;
+            }
+            return new Promise((resolve, reject) => {
+              var script = document.createElement('script');
+              script.type = 'text/javascript';
+              script.src = 'lib/device/' + file;
+              script.onload = function() {
+                script.onload = null;
+                win.info('Loaded device provider:', file);
+                resolve(file);
+              };
+              head.appendChild(script);
+            });
+          })
+          .filter(function(q) {
+            return q;
+          });
+    },
     ChooserView: createChooserView
   };
+
+  Promise.all(App.Device.loadDeviceSupport()).then(function(data) {
+    App.Device.rescan();
+  });
+
 })(window.App);

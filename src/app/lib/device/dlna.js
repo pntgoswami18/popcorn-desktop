@@ -4,24 +4,25 @@
     var collection = App.Device.Collection;
 
 
-    var makeID = function(baseID) {
-        return 'dlna-' + baseID.replace('-', '');
-    };
+    class Dlna extends App.Device.Loaders.Device {
+        constructor(attrs) {
+            super(Object.assign({
+                type: 'dlna',
+                typeFamily: 'external'
+            }, attrs));
+        }
 
-    var Dlna = App.Device.Generic.extend({
-        defaults: {
-            type: 'dlna',
-            typeFamily: 'external'
-        },
-        makeID: makeID,
+        makeID(baseID) {
+                return 'dlna-' + baseID.replace('-', '');
+        }
 
-        initialize: function(attrs) {
+        initialize(attrs) {
             this.player = attrs.player;
             this.attributes.name = this.player.name;
             this.attributes.address = this.player.host;
-        },
+        }
 
-        play: function(streamModel) {
+        play(streamModel) {
             var url = streamModel.get('src');
             var self = this;
             var media;
@@ -54,61 +55,52 @@
             this.player.on('status', function(status) {
                 self._internalStatusUpdated(status);
             });
-        },
+        }
 
-        stop: function() {
+        stop() {
             this.player.stop();
-        },
+        }
 
-        pause: function() {
+        pause() {
             this.player.pause();
-        },
+        }
 
-        forward: function() {
+        forward() {
             this.player.seek(30);
-        },
+        }
 
-        backward: function() {
+        backward() {
             this.player.seek(-30);
-        },
+        }
 
-        seek: function(seconds) {
-            win.info('DLNA: seek %s', seconds);
+        seek(seconds) {
             this.get('player').seek(seconds, function(err, status) {
-                if (err) {
-                    win.error('DLNA.seek:Error', err);
-                }
             });
-        },
-        seekTo: function(newCurrentTime) {
-            win.info('DLNA: seek to %ss', newCurrentTime);
+        }
+        seekTo(newCurrentTime) {
             this.get('player').seek(newCurrentTime, function(err, status) {
-                if (err) {
-                    win.error('DLNA.seek:Error', err);
-                }
             });
-        },
+        }
 
-        seekPercentage: function(percentage) {
-            win.info('DLNA: seek percentage %s%', percentage.toFixed(2));
+        seekPercentage(percentage) {
             var newCurrentTime = this.player._status.duration / 100 * percentage;
             this.seekTo(newCurrentTime.toFixed());
-        },
+        }
 
-        unpause: function() {
+        unpause() {
             this.player.play();
-        },
-        updateStatus: function() {
+        }
+        updateStatus() {
             var self = this;
             this.get('player').status(function(err, status) {
                 if (err) {
-                    return win.info('DLNA.updateStatus:Error', err);
+                    return win.error('DLNA.updateStatus:Error', err);
                 }
                 self._internalStatusUpdated(status);
             });
-        },
+        }
 
-        _internalStatusUpdated: function(status) {
+        _internalStatusUpdated(status) {
             if (status === undefined) {
                 status = this.player._status;
             }
@@ -117,24 +109,24 @@
                 App.vent.trigger('device:status', status);
             }
         }
-    });
 
+        static scan() {
+            dlnacasts.on('update', function(player) {
+                if (collection.where({
+                    id: player.host
+                }).length === 0) {
+                    win.info('Found DLNA Device: %s at %s', player.name, player.host);
+                    collection.add(new Dlna({
+                        id: player.host,
+                        player: player
+                    }));
+                }
+            });
 
-    dlnacasts.on('update', function(player) {
-        if (collection.where({
-                id: player.host
-            }).length === 0) {
-            win.info('Found DLNA Device: %s at %s', player.name, player.host);
-            collection.add(new Dlna({
-                id: player.host,
-                player: player
-            }));
+            win.info('Scanning: Local Network for DLNA devices');
+            dlnacasts.update();
         }
-    });
+    }
 
-    win.info('Scanning: Local Network for DLNA devices');
-    dlnacasts.update();
-
-
-    App.Device.Dlna = Dlna;
+    App.Device.Loaders.Dlna = Dlna;
 })(window.App);

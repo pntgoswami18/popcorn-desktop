@@ -17,6 +17,7 @@
       'click .favourites-toggle': 'toggleFavourite',
       'click .playerchoicemenu li a': 'selectPlayer',
       'click .playerchoicehelp': 'showPlayerList',
+      'click .playerchoicerefresh': 'refreshPlayerList',
       'click .watched-toggle': 'toggleWatched',
       'mousedown #subs-dropdown': 'hideTooltipsSubs',
       'click .connect-opensubtitles': 'connectOpensubtitles',
@@ -73,8 +74,10 @@
       this.model.set('showTorrents', false);
       this.ui.showTorrents.show();
 
+      $('.playerchoicerefresh, .playerchoicehelp').tooltip({html: true, delay: {'show': 800,'hide': 100}});
+
       if ($('.loading .maximize-icon').is(':visible') || $('.player .maximize-icon').is(':visible')) {
-        $('.button:not(#download-torrent)').addClass('disabled');
+        $('.button:not(#download-torrent, #cancel-button)').addClass('disabled');
         $('#watch-now, #watch-trailer, .playerchoice').prop('disabled', true);
       }
     },
@@ -200,7 +203,7 @@
     hideTooltipsSubs: function (e) {
       this.hideTooltips();
       if (e.button === 2) {
-        nw.Shell.openExternal('https://www.opensubtitles.org/search/' + (this.model.get('imdb_id') ? this.model.get('imdb_id').replace('tt', 'imdbid-') : ''));
+        nw.Shell.openExternal('https://www.opensubtitles.org/search/sublanguageid-all/' + (this.model.get('imdb_id') ? this.model.get('imdb_id').replace('tt', 'imdbid-') : ''));
       }
     },
 
@@ -287,17 +290,46 @@
     },
 
     playTrailer: function() {
-      var trailer = new Backbone.Model({
-        src: this.model.get('trailer'),
-        type: 'video/youtube',
-        subtitle: null,
-        quality: false,
-        title: this.model.get('title')
-      });
-      var tmpPlayer = App.Device.Collection.selected.attributes.id;
-      App.Device.Collection.setDevice('local');
-      App.vent.trigger('stream:ready', trailer);
-      App.Device.Collection.setDevice(tmpPlayer);
+      // YouTube's embed API blocks playback in NW.js (Error 153) because
+      // the parent window has an unrecognised app:// origin. Open in the
+      // system browser instead, which guarantees playback in all cases.
+      // The trailer URL comes from remote API metadata, so only hand it to
+      // the OS if it is a well-formed YouTube link with a video id.
+      var trailerUrl = this.getSafeTrailerUrl(this.model.get('trailer'));
+      if (trailerUrl) {
+        nw.Shell.openExternal(trailerUrl);
+      }
+    },
+
+    // Returns a normalized https YouTube URL, or null if the value is not a
+    // recognisable YouTube trailer link (metadata sources sometimes emit
+    // http:// links or empty video ids).
+    getSafeTrailerUrl: function(trailerUrl) {
+      if (!trailerUrl) {
+        return null;
+      }
+      try {
+        var parsed = new URL(trailerUrl);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+          return null;
+        }
+        var host = parsed.hostname.toLowerCase();
+        var videoId = null;
+        var match;
+        if (host === 'youtu.be') {
+          match = /^\/([\w-]{6,})\/?$/.exec(parsed.pathname);
+          videoId = match && match[1];
+        } else if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
+          match = /^\/(?:embed|v|shorts)\/([\w-]{6,})\/?$/.exec(parsed.pathname);
+          videoId = match ? match[1] : parsed.searchParams.get('v');
+        }
+        if (videoId && /^[\w-]{6,}$/.test(videoId)) {
+          return 'https://www.youtube.com/watch?v=' + videoId;
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
     },
 
     toggleFavourite: function(e) {
@@ -324,23 +356,16 @@
       _this.getRegion('qualitySelector').currentView.selectNext();
     },
 
-    selectPlayer: function(e) {
-      var player = $(e.currentTarget)
-        .parent('li')
-        .attr('id')
-        .replace('player-', '');
-      this.model.set('device', player);
-      if (!player.match(/[0-9]+.[0-9]+.[0-9]+.[0-9]/gi)) {
-        AdvSettings.set('chosenPlayer', player);
-      }
+    selectPlayer: function (e) {
+      Common.selectPlayer(e, this.model);
     },
 
-    showPlayerList: function(e) {
-      App.vent.trigger('notification:show', new App.Model.Notification({
-        title: '',
-        body: i18n.__('Popcorn Time currently supports') + '<div class="splayerlist">' + extPlayerlst + '.</div><br>' + i18n.__('There is also support for Chromecast, AirPlay & DLNA devices.'),
-        type: 'success'
-      }));
+    showPlayerList: function () {
+      Common.showPlayerList();
+    },
+
+    refreshPlayerList: function (e) {
+      Common.refreshPlayerList(e);
     },
 
     showAllTorrents: function() {

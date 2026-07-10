@@ -18,9 +18,7 @@
       InitModal: '#initializing',
       Disclaimer: '#disclaimer-container',
       About: '#about-container',
-      VPN: '#vpn-container',
       Keyboard: '#keyboard-container',
-      Help: '#help-container',
       TorrentCollection: '#torrent-collection-container',
       Notification: '#notification',
       Seedbox: '#seedbox-container'
@@ -84,13 +82,6 @@
         _.bind(this.getRegion('About').empty, this.getRegion('About'))
       );
 
-      // Add event to show VPN installer
-      App.vent.on('vpn:show', _.bind(this.showVPN, this));
-      App.vent.on(
-        'vpn:close',
-        _.bind(this.getRegion('VPN').empty, this.getRegion('VPN'))
-      );
-
       // Keyboard
       App.vent.on('keyboard:show', _.bind(this.showKeyboard, this));
       App.vent.on(
@@ -101,11 +92,8 @@
 
       // Help
       App.vent.on('help:show', _.bind(this.showHelp, this));
-      App.vent.on(
-        'help:close',
-        _.bind(this.getRegion('Help').empty, this.getRegion('Help'))
-      );
-      App.vent.on('help:toggle', _.bind(this.toggleHelp, this));
+      App.vent.on('help:close',_.bind(this.showHelp, this));
+      App.vent.on('help:toggle', _.bind(this.showHelp, this));
 
       // Movies
       App.vent.on('movie:showDetail', _.bind(this.showMovieDetail, this));
@@ -189,7 +177,6 @@
     },
 
     showSubtitles: function(model) {
-      win.debug('Show subtitles', model);
       var s = new App.View.Subtitles({
         model: model
       });
@@ -247,7 +234,7 @@
         const torrent_cache_dir = path.join(Settings.tmpLocation, 'TorrentCache');
         if (!fs.existsSync(torrent_cache_dir)) {
           fs.mkdir(torrent_cache_dir, function (err) {
-            if (err && err.errno !== '-4075') { console.log('error creating TorrentCache dir', err); }
+            if (err && err.errno !== '-4075') { win.error('error creating TorrentCache dir', err); }
           });
         }
 
@@ -268,7 +255,7 @@
           const torrent_cache_dir2 = path.join(Settings.downloadsLocation, 'TorrentCache');
           if (!fs.existsSync(torrent_cache_dir2)) {
             fs.mkdir(torrent_cache_dir2, function (err) {
-              if (err && err.errno !== '-4075') { console.log('error creating Downloads TorrentCache dir', err); }
+              if (err && err.errno !== '-4075') { win.error('error creating Downloads TorrentCache dir', err); }
             });
           }
         }
@@ -296,7 +283,7 @@
         });
 
         // we check if the disclaimer is accepted
-        if (!AdvSettings.get('disclaimerAccepted') || AdvSettings.get('automaticUpdating') === '' || AdvSettings.get('dhtEnable') === '') {
+        if (!AdvSettings.get('disclaimerAccepted') || AdvSettings.get('updateNotification') === '' || AdvSettings.get('dhtEnable') === '') {
           that.showDisclaimer();
         }
 
@@ -312,6 +299,7 @@
         switch (openScreen) {
           case 'Watchlist': that.showWatchlist(); break;
           case 'Favorites': that.showFavorites(); break;
+          case 'Watched': that.showFavorites(); break;
           case 'TV Series': that.tvshowTabShow(); break;
           case 'Anime': that.animeTabShow(); break;
           case 'Torrent-collection':
@@ -461,10 +449,6 @@
       this.showChildView('About', new App.View.About());
     },
 
-    showVPN: function(e) {
-      this.showChildView('VPN', new App.View.VPN());
-    },
-
     showTorrentCollection: function(e) {
       this.showChildView('TorrentCollection', new App.View.TorrentCollection());
     },
@@ -486,15 +470,7 @@
     },
 
     showHelp: function(e) {
-      this.showChildView('Help', new App.View.Help());
-    },
-
-    toggleHelp: function(e) {
-      if ($('.help-container').length > 0) {
-        App.vent.trigger('help:close');
-      } else {
-        this.showHelp();
-      }
+      nw.Shell.openExternal(Settings.projectBlog + '/FAQ');
     },
 
     preventDefault: function(e) {

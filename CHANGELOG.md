@@ -1,3 +1,63 @@
+## 0.5.1 - Now.. Bring me that Horizon - 16 April 2024
+
+New Features:
+- Update NW.js runtime to 0.86.0 (0.44.5 still supported as an option for this release)
+- Add Always show bookmark over covers option
+- Improve local file support adding external players/cast devices
+- Add option to rescan external players/cast devices
+- Include PATH env. variable when scanning for external players
+- Improve Torrent Collection/Seedbox interaction
+- Add Linux AppImage
+
+Bug Fixes:
+- Fix native player UI issue when in fullscreen
+- Fix Favorites/Watched tabs Anime category
+- Fix issue with missing covers when TMDb is inaccessible
+- Fix issue with displaying incorrect filters in some instances
+- Fix issue with the settings/databases flushing functions
+- Tooltip fixes
+
+Other:
+- Replace the old Help screen with the online FAQ
+- Update the build system
+- Clean up obsolete/unnecessary code
+- Update torrent trackers
+- Update various modules/dependencies
+- Various other small fixes and optimizations
+
+## 0.5.0 - Mischief Managed - 10 February 2024
+
+New Features:
+- Update NW.js runtime to 0.82.0 (0.44.5 still supported as an option for this release)
+- Add macOS build for Apple Silicon (NW.js 0.82.0 only)
+- Add working Anime tab
+- Add Watched tab
+- Add Seedbox option for exiting the app when downloads complete
+- Add VLC flatpack external player support
+- Add Movies/Series UI Transparency option
+- Add new theme Dutchy's Dark Orange
+- Switch to the new OpenSubtitles REST API
+- Update WebTorrent to 1.9.7
+
+Bug Fixes:
+- Fix WebTorrent bug which caused high CPU/memory usage
+- Fix issue with broken bookmark entries preventing list from loading
+- Fix issue with title translations
+- Fix bug which caused switching to the default Chromium player when broken trailer link
+- Fix bug which prevented saving magnet links with no name property
+- Fix missing provider icons when no source link
+- Fix Series poster zoom implementation
+- Fix brightness and hue filters implementations
+- Fix title display for mpv external player
+
+Other:
+- Update the build system
+- Clean up obsolete/unnecessary code
+- Update Torrent Collection providers
+- Update torrent trackers
+- Update various modules/dependencies
+- Various other small fixes and optimizations
+
 ## 0.4.9 - Ogres are not like cakes - 04 September 2022
 
 New Features:

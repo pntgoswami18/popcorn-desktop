@@ -2,7 +2,6 @@
 var _ = require('underscore'),
   async = require('async'),
   inherits = require('util').inherits,
-  Q = require('q'),
   // Machine readable
   os = require('os'),
   dayjs = require('dayjs'),
@@ -15,7 +14,6 @@ var _ = require('underscore'),
   rimraf = require('rimraf'),
   jsonFileEditor = require('edit-json-file'),
   // Compression
-  tar = require('tar'),
   AdmZip = require('adm-zip'),
   zlib = require('zlib'),
   // Encoding/Decoding
@@ -31,14 +29,11 @@ var _ = require('underscore'),
   http = require('http'),
   request = require('request'),
   // Web
-  querystring = require('querystring'),
   URI = require('urijs'),
   Trakt = require('trakt.tv'),
   // Torrent engines
   WebTorrent = require('webtorrent'),
-  torrentCollection = require('torrentcollection5'),
-  // VPN
-  VPNht = require('@vpnht/sdk'),
+  torrentCollection = require('torrentcollection6'),
   // NodeJS
   child = require('child_process'),
   // package.json

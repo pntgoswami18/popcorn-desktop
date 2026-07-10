@@ -8,7 +8,7 @@
             <span>
                 <i class="far fa-keyboard keyboard tooltipped" data-toggle="tooltip" data-placement="bottom" title="<%= i18n.__("Keyboard Shortcuts") %>"></i>
                 <i class="fa fa-info-circle about tooltipped" data-toggle="tooltip" data-placement="bottom" title="<%= i18n.__("About") %>"></i>
-                <i class="fa fa-question-circle help tooltipped" data-toggle="tooltip" data-placement="bottom" title="<%= i18n.__("Help Section") %>"></i>
+                <i class="fa fa-question-circle help tooltipped" data-toggle="tooltip" data-placement="bottom" title="<%= i18n.__("FAQ") %>"></i>
             </span>
         </div>
     </section>
@@ -51,6 +51,7 @@
                             Settings.seriesTabEnable ? arr_screens.push("TV Series") : null;
                             Settings.animeTabEnable ? arr_screens.push("Anime") : null;
                             Settings.favoritesTabEnable ? arr_screens.push("Favorites") : null;
+                            Settings.watchedTabEnable ? arr_screens.push("Watched") : null;
                             Settings.activateWatchlist && App.Trakt.authenticated ? arr_screens.push("Watchlist") : null;
                             Settings.activateTorrentCollection ? arr_screens.push("Torrent-collection") : null;
                             Settings.activateSeedbox ? arr_screens.push("Seedbox") : null;
@@ -78,10 +79,17 @@
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                 <input class="settings-checkbox" name="favoritesTabEnable" id="favoritesTabEnable" type="checkbox" <%=(Settings.favoritesTabEnable? "checked='checked'":"")%>>
                 <label class="settings-label" for="favoritesTabEnable"><%= i18n.__("Favorites") %></label>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                <input class="settings-checkbox" name="watchedTabEnable" id="watchedTabEnable" type="checkbox" <%=(Settings.watchedTabEnable? "checked='checked'":"")%>>
+                <label class="settings-label" for="watchedTabEnable"><%= i18n.__("Watched") %></label>
             </span>
             <span>
                 <input class="settings-checkbox" name="coversShowRating" id="coversShowRating" type="checkbox" <%=(Settings.coversShowRating? "checked='checked'":"")%>>
                 <label class="settings-label" for="coversShowRating"><%= i18n.__("Show rating over covers") %></label>
+            </span>
+            <span>
+                <input class="settings-checkbox" name="alwaysShowBookmarks" id="alwaysShowBookmarks" type="checkbox" <%=(Settings.alwaysShowBookmarks? "checked='checked'":"")%>>
+                <label class="settings-label" for="alwaysShowBookmarks"><%= i18n.__("Always show bookmark over covers") %></label>
             </span>
             <% if (Settings.activateSeedbox) { %>
             <span>
@@ -155,7 +163,7 @@
                             var pos_type = {"134": "100%", "154": "113%", "174": "125%", "194": "138%", "214": "150%", "234": "163%", "254": "175%", "274": "188%", "294": "200%"};
                             var pos_sizes = "";
                             for(var key in pos_type) {
-                                pos_sizes += "<option "+(Settings.postersWidth == key? "selected='selected'":"")+" value='"+key+"'>"+i18n.__(pos_type[key])+"</option>";
+                                pos_sizes += "<option "+(Settings.postersWidth == key? "selected='selected'":"")+" value='"+key+"'>"+pos_type[key]+"</option>";
                             }
                         %>
                     <select name="poster_size"><%=pos_sizes%></select>
@@ -164,7 +172,32 @@
             </span>
             <span>
                 <p><%= i18n.__("UI Scaling") %></p>
-                <input id="bigPicture" type="text" size="5" name="bigPicture" value="<%=Settings.bigPicture%>%" autocomplete="off"/>&nbsp;&nbsp;&nbsp;<em><%= i18n.__("25% - 400%") %></em>
+                <input id="bigPicture" type="text" size="5" name="bigPicture" value="<%=Settings.bigPicture%>%" autocomplete="off"/>&nbsp;&nbsp;&nbsp;<em>25% - 400%</em>
+            </span>
+            <span>
+                <div class="dropdown UITransparency">
+                    <p><%= i18n.__("UI Transparency") %></p>
+                    <label><%= i18n.__("Movies") %></label>
+                        <%
+                            var transpm_type = {"1": "Disabled", "0.90": "Very Low", "0.75": "Low", "0.65": "Medium", "0.55": "High", "0.40": "Very High"};
+                            var transpm_sizes = "";
+                            for(var key in transpm_type) {
+                                transpm_sizes += "<option "+(Settings.moviesUITransparency == key? "selected='selected'":"")+" value='"+key+"'>"+i18n.__(transpm_type[key])+"</option>";
+                            }
+                        %>
+                    <select name="moviesUITransparency"><%=transpm_sizes%></select>
+                    <div class="dropdown-arrow"></div>
+                    <label><%= i18n.__("Series") %></label>
+                        <%
+                            var transps_type = {"": "Disabled", "vlow": "Very Low", "low": "Low", "medium": "Medium", "high": "High", "vhigh": "Very High"};
+                            var transps_sizes = "";
+                            for(var key in transps_type) {
+                                transps_sizes += "<option "+(Settings.seriesUITransparency == key? "selected='selected'":"")+" value='"+key+"'>"+i18n.__(transps_type[key])+"</option>";
+                            }
+                        %>
+                    <select name="seriesUITransparency"><%=transps_sizes%></select>
+                    <div class="dropdown-arrow"></div>
+                </div>
             </span>
             <span>
                 <input class="settings-checkbox" name="nativeWindowFrame" id="nativeWindowFrame" type="checkbox" <%=(Settings.nativeWindowFrame? "checked='checked'":"")%>>
@@ -523,9 +556,9 @@
                     <p><%= i18n.__("Movies API Server(s)") %></p>
                     <input type="text" size="61" id="customMoviesServer" name="customMoviesServer" list="moviesServers" value="<%= encodeURI(Settings.customMoviesServer ? Settings.customMoviesServer : (Settings.dhtEnable && Settings.dhtInfo ? Settings.dhtInfo.server : Settings.providers.movie.uri[0].split('=')[1])) %>">
                     <datalist id="moviesServers">
-                        <% var movieServList = [Settings.providers.movie.uri[0].split('=')[1].replace(/,/g, ',  ')];
+                        <% var movieServList = [Settings.providers.movie.uri[0].split('=')[1]];
                            Settings.customServers && Settings.customServers.movie ? movieServList = movieServList.concat(Settings.customServers.movie) : null;
-                           Settings.dhtInfo ? movieServList = movieServList.concat([Settings.dhtInfo.server.replace(/,/g, ',  ')]) : null;
+                           Settings.dhtInfo ? movieServList = movieServList.concat([Settings.dhtInfo.server]) : null;
                            for (var i = 0; i < movieServList.length; ++i) {
                         %>
                         <option value="<%= encodeURI(movieServList[i]).replace(/%20/g, ' ') %>">
@@ -538,9 +571,9 @@
                     <p><%= i18n.__("Series API Server(s)") %></p>
                     <input type="text" size="61" id="customSeriesServer" name="customSeriesServer" list="seriesServers" value="<%= encodeURI(Settings.customSeriesServer ? Settings.customSeriesServer : (Settings.dhtEnable && Settings.dhtInfo ? Settings.dhtInfo.server : Settings.providers.tvshow.uri[0].split('=')[1])) %>">
                     <datalist id="seriesServers">
-                        <% var seriesServList = [Settings.providers.tvshow.uri[0].split('=')[1].replace(/,/g, ',  ')];
+                        <% var seriesServList = [Settings.providers.tvshow.uri[0].split('=')[1]];
                            Settings.customServers && Settings.customServers.tvshow ? seriesServList = seriesServList.concat(Settings.customServers.tvshow) : null;
-                           Settings.dhtInfo ? seriesServList = seriesServList.concat([Settings.dhtInfo.server.replace(/,/g, ',  ')]) : null;
+                           Settings.dhtInfo ? seriesServList = seriesServList.concat([Settings.dhtInfo.server]) : null;
                            for (var i = 0; i < seriesServList.length; ++i) {
                         %>
                         <option value="<%= encodeURI(seriesServList[i]).replace(/%20/g, ' ') %>">
@@ -553,9 +586,9 @@
                     <p><%= i18n.__("Anime API Server(s)") %></p>
                     <input type="text" size="61" id="customAnimeServer" name="customAnimeServer" list="animeServers" value="<%= encodeURI(Settings.customAnimeServer ? Settings.customAnimeServer : (Settings.dhtEnable && Settings.dhtInfo ? Settings.dhtInfo.server : Settings.providers.anime.uri[0].split('=')[1])) %>">
                     <datalist id="animeServers">
-                        <% var animeServList = [Settings.providers.anime.uri[0].split('=')[1].replace(/,/g, ',  ')];
+                        <% var animeServList = [Settings.providers.anime.uri[0].split('=')[1]];
                            Settings.customServers && Settings.customServers.anime ? animeServList = animeServList.concat(Settings.customServers.anime) : null;
-                           Settings.dhtInfo ? animeServList = animeServList.concat([Settings.dhtInfo.server.replace(/,/g, ',  ')]) : null;
+                           Settings.dhtInfo ? animeServList = animeServList.concat([Settings.dhtInfo.server]) : null;
                            for (var i = 0; i < animeServList.length; ++i) {
                         %>
                         <option value="<%= encodeURI(animeServList[i]).replace(/%20/g, ' ') %>">
@@ -746,18 +779,15 @@
                 <label class="settings-label" for="updateNotification"><%= i18n.__("Show a notification when a new version is available") %></label>
                 <i class="update-app fa fa-rotate tooltipped" data-toggle="tooltip" data-placement="auto" title="<%= i18n.__("Check for updates") %>"></i>
             </span>
-            <span>
-                <input class="settings-checkbox" name="automaticUpdating" id="automaticUpdating" type="checkbox" <%=(Settings.automaticUpdating? "checked='checked'":"")%>>
-                <label class="settings-label" for="automaticUpdating"><%= i18n.__("Automatically update the app when a new version is available") %></label>
-            </span>
         </div>
     </section>
 
     <div class="btns">
-        <div class="btn-settings rebuild-bookmarks"><i class="fa fa-rotate-right">&nbsp;&nbsp;</i><%= i18n.__("Rebuild bookmarks database") %></div>
-        <div class="btn-settings flush-bookmarks"><i class="fa fa-trash">&nbsp;&nbsp;</i><%= i18n.__("Flush bookmarks database") %></div>
-        <div class="btn-settings flush-databases"><i class="fa fa-trash">&nbsp;&nbsp;</i><%= i18n.__("Flush all databases") %></div>
-        <div class="btn-settings default-settings"><i class="fa fa-rotate-right">&nbsp;&nbsp;</i><%= i18n.__("Reset to Default Settings") %></div>
+        <div class="btn-settings rebuild-bookmarks">&nbsp;<i class="fa fa-wrench">&nbsp;&nbsp;&nbsp;</i><%= i18n.__("Rebuild bookmarks database") %>&nbsp;</div>
+        <div class="btn-settings flush-bookmarks">&nbsp;<i class="fa fa-trash">&nbsp;&nbsp;&nbsp;</i><%= i18n.__("Flush bookmarks database") %>&nbsp;</div>
+        <div class="btn-settings flush-watched">&nbsp;<i class="fa fa-trash">&nbsp;&nbsp;&nbsp;</i><%= i18n.__("Flush watched database") %>&nbsp;</div>
+        <div class="btn-settings default-settings">&nbsp;<i class="fa fa-rotate-right">&nbsp;&nbsp;&nbsp;</i><%= i18n.__("Reset to Default Settings") %>&nbsp;</div>
+        <div class="btn-settings flush-databases">&nbsp;<i class="fa fa-rotate-right">&nbsp;&nbsp;&nbsp;</i><%= i18n.__("Reset all") %>&nbsp;&nbsp;</div>
     </div>
 
 </div>
