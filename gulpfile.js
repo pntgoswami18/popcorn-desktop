@@ -208,7 +208,12 @@ const nw = new nwBuilder({
   version: nwVersion,
   flavor: nwFlavor,
   manifestUrl: 'https://popcorn-time.serv00.net/version.json',
-  downloadUrl: 'https://popcorn-time.serv00.net/nw/',
+  // Official NW.js CDN. The previous mirror served the same layout but ran at
+  // ~130 KB/s and stalled mid-transfer with no resume, which repeatedly hung
+  // builds; this host sustains several MB/s for the same archives.
+  // Use dl.node-webkit.org rather than dl.nwjs.io: the latter 302-redirects
+  // here, and nw-builder's downloader is not verified to follow redirects.
+  downloadUrl: 'https://dl.node-webkit.org/',
   platforms: parsePlatforms()
 }).on('log', console.log);
 

@@ -1,0 +1,92 @@
+name: Release Builds
+
+# Builds the three artifacts published on this fork: macOS Apple Silicon,
+# macOS Intel and Windows x64. Each target builds on its native runner, which
+# keeps Windows resource-stamping (rcedit) off Wine entirely -- Wine is
+# deprecated on macOS and additionally needs Rosetta on Apple Silicon.
+#
+# Triggered manually so it can be run on demand without waiting for a tag.
+# Deliberately does NOT create a GitHub release: publishing stays a separate,
+# explicit step. Note the inherited `build.yml` already creates a release when
+# a v* tag is pushed.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # One platform failing must not cancel the others. nw-builder processes
+      # platforms in a Promise.all, so a single failure can otherwise leave
+      # sibling builds without their app payload.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: osx-arm64
+          - os: macos-13
+            platform: osx64
+          - os: windows-latest
+            platform: win64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history + tags: gulp's injectgit derives the version from
+          # `git describe`, and curVersion() feeds it into the zip filename.
+          # A shallow clone yields a wrong or missing version.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache NW.js runtime
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: nwjs-${{ matrix.platform }}-${{ hashFiles('gulpfile.js') }}
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build ${{ matrix.platform }}
+        run: yarn gulp build --platforms=${{ matrix.platform }}
+
+      - name: Verify the app payload is present
+        # nw-builder can exit 0 having produced a bare runtime with no app code
+        # (e.g. when a resource-stamping step fails). Fail loudly here instead
+        # of shipping a hollow build.
+        shell: bash
+        run: |
+          set -e
+          case "${{ matrix.platform }}" in
+            osx*)  PAYLOAD="build/Popcorn-Time/${{ matrix.platform }}/Popcorn-Time.app/Contents/Resources/app.nw" ;;
+            win64) PAYLOAD="build/Popcorn-Time/win64/package.nw" ;;
+          esac
+          if [ ! -d "$PAYLOAD" ]; then
+            echo "::error::App payload missing at $PAYLOAD - the build is a hollow runtime."
+            ls -R "build/Popcorn-Time/${{ matrix.platform }}" | head -40
+            exit 1
+          fi
+          test -f "$PAYLOAD/src/app/lib/views/movie_detail.js"
+          echo "Payload OK: $PAYLOAD"
+
+      - name: Package zip
+        run: yarn gulp compresszip --platforms=${{ matrix.platform }}
+
+      - name: List artifacts
+        shell: bash
+        run: ls -la build/*.zip
+
+      - name: Upload ${{ matrix.platform }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: build/*.zip
+          if-no-files-found: error
