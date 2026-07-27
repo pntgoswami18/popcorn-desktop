@@ -13,6 +13,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      # One combination failing must not cancel the rest of the matrix -- the
+      # legacy nwjs 0.44.5 linux deb-rename path is narrow and unrelated to
+      # the other seven combinations; without this, its failure took down
+      # the osx-arm64/osx64/win64 builds before they could even run.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
         nwjs: ['0.44.5', '0.86.0']
