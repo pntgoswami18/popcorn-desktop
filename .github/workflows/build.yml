@@ -16,6 +16,16 @@ jobs:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
         nwjs: ['0.44.5', '0.86.0']
+        include:
+          # Apple Silicon build. Kept as its own combination rather than a 4th
+          # `os` entry: nwjs 0.44.5 has no osx-arm64 build (404 from the NW.js
+          # CDN), so it can only pair with 0.86.0. `platform` is set directly
+          # here rather than through variable-mapper below, which only knows
+          # the three `os` values in its map and silently no-ops (leaves
+          # env.platform unset) for anything else.
+          - os: macos-14
+            nwjs: '0.86.0'
+            platform: osx-arm64
 
     steps:
       - name: Context
@@ -46,27 +56,30 @@ jobs:
         run: |
           node --version
 
-      - uses: kiriles90/variable-mapper@master
-        with:
-          key: "${{ matrix.os }}"
-          map: |
-            {
-              "ubuntu-latest": { "platform": "linux64" },
-              "macOS-latest": { "platform": "osx64" },
-              "windows-latest": { "platform": "win64" }
-            }
+      - name: Map runner to platform
+        # Was kiriles90/variable-mapper@master, which now fails every run with
+        # "repository not found" -- the action was deleted or its owner's
+        # account removed. Replaced with a plain inline mapping so this step
+        # can't disappear out from under the workflow again.
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest)  echo "platform=linux64" >> "$GITHUB_ENV" ;;
+            macOS-latest)   echo "platform=osx64" >> "$GITHUB_ENV" ;;
+            windows-latest) echo "platform=win64" >> "$GITHUB_ENV" ;;
+          esac
 
       - name: Build info
-        run: echo Build ${{ env.platform }} on nw-v${{ matrix.nwjs }}
+        run: echo Build ${{ matrix.platform || env.platform }} on nw-v${{ matrix.nwjs }}
 
       - name: Build App
         run: |
           yarn
-          yarn gulp dist --platforms=${{ env.platform == 'win' && '"' || '' }}${{ env.platform }}${{ env.platform == 'win' && '"' || '' }} --nwVersion=${{ matrix.nwjs }}
+          yarn gulp dist --platforms=${{ matrix.platform || env.platform }} --nwVersion=${{ matrix.nwjs }}
       - name: Upload artifacts
         uses: actions/upload-artifact@master
         with:
-          name: ${{ env.platform }}-${{ matrix.nwjs }}
+          name: ${{ matrix.platform || env.platform }}-${{ matrix.nwjs }}
           path: build
 
   packs:
