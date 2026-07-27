@@ -49,6 +49,7 @@
 
       App.vent.on('sub:lang', this.switchSubtitle.bind(this));
       App.vent.on('audio:lang', this.switchAudio.bind(this));
+      App.vent.on('update:torrents:failed', this.resetShowAllTorrents.bind(this));
       App.vent.on(
         'update:subtitles',
         function(subs) {
@@ -379,10 +380,17 @@
       App.vent.trigger('update:torrents', show ? this.audio_selected : null);
     },
 
+    // the list couldn't be fetched: put the toggle back so a retry is one click
+    resetShowAllTorrents: function() {
+      this.model.set('showTorrents', false);
+      this.ui.showTorrents.removeClass('active fas fa-spinner fa-spin').html(i18n.__('more...'));
+    },
+
     onBeforeDestroy: function() {
       App.vent.off('sub:lang');
       App.vent.off('audio:lang');
       App.vent.off('update:subtitles');
+      App.vent.off('update:torrents:failed');
       this.model.off('change:quality');
       Object.values(this.views).forEach(v => v.destroy());
     }

@@ -184,6 +184,10 @@ Settings.httpApiPassword = 'popcorn';
 Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+// Popcorn Time API mirrors used to back the 'more...' torrent list when the
+// configured movies provider is a YTS mirror, which has no such endpoint.
+// Not user configurable: it must stay a pure Popcorn Time API list.
+Settings.showAllServers = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.dhtEnable = '';
 
 // Connection

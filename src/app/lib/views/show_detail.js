@@ -107,6 +107,7 @@
             });
 
             App.vent.on('update:torrents', _this.onUpdateTorrentsList.bind(_this));
+            App.vent.on('update:torrents:failed', _this.resetShowAllTorrents.bind(_this));
             App.vent.on('audio:lang', this.switchAudio.bind(this));
             this.initTorrents(this.model.get('episodes'));
         },
@@ -998,9 +999,16 @@
             } : null);
         },
 
+        // the list couldn't be fetched: put the toggle back so a retry is one click
+        resetShowAllTorrents: function () {
+            this.model.set('showTorrents', false);
+            this.ui.showTorrents.removeClass('active fas fa-spinner fa-spin').html(i18n.__('more...'));
+        },
+
         onBeforeDestroy: function () {
             this.unbindKeyboardShortcuts();
             App.vent.off('update:torrents');
+            App.vent.off('update:torrents:failed');
             App.vent.off('audio:lang');
             App.vent.off('show:watched:' + this.model.id);
             App.vent.off('show:unwatched:' + this.model.id);

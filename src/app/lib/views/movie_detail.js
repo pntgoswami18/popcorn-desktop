@@ -82,7 +82,7 @@
         return;
       }
       const provider = App.Config.getProviderForType('movie')[0];
-      const altShowAll = provider.config.noShowAll ? _.shuffle((Settings.dhtInfo.server ? Settings.dhtInfo.server.split(',') : Settings.customServers.movie).filter(a => !a.includes(provider.apiURL))) : null;
+      const altShowAll = provider.config.noShowAll ? this.getAltShowAllServers(provider) : null;
       const torrentList = new App.View.TorrentList({
         model: new Backbone.Model({
           provider,
@@ -90,6 +90,21 @@
         }),
       });
       this.getRegion('TorrentList').show(torrentList);
+    },
+
+    // YTS style APIs don't implement the 'movie/:imdb_id/torrents' endpoint, so
+    // the full torrent list has to be fetched from another server. Only servers
+    // speaking the Popcorn API qualify, which rules out every yts.* mirror.
+    getAltShowAllServers: function(provider) {
+      const own = provider.apiURL || [];
+      const candidates = _.union(
+        Settings.dhtInfo && Settings.dhtInfo.server ? Settings.dhtInfo.server.split(',') : [],
+        Settings.customMoviesServer ? Settings.customMoviesServer.split(',') : [],
+        Settings.showAllServers ? Settings.showAllServers.split(',') : [],
+        Settings.customServers && Settings.customServers.movie ? Settings.customServers.movie : []
+      ).map(a => a.trim()).filter(a => !!a);
+
+      return _.shuffle(candidates.filter(a => !a.includes('://yts') && !own.some(url => a.includes(url))));
     },
 
     onChangeQuality: function (quality) {

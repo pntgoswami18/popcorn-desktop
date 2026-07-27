@@ -20,7 +20,15 @@
 
         onAttach: function () {
             this.model.set('torrents', []);
-            this.model.get('promise').then((data) => this.updateTorrents(data));
+            this.model.get('promise')
+                .then((data) => this.updateTorrents(data))
+                .catch((error) => this.onTorrentsError(error));
+        },
+
+        onTorrentsError: function (error) {
+            win.warn('Unable to fetch the full torrent list:', error);
+            $('.notification_alert').stop().text(i18n.__('Error loading data, try again later...')).fadeIn('fast').delay(2500).fadeOut('fast');
+            App.vent.trigger('update:torrents:failed');
         },
 
         updateTorrents: function (torrents) {
