@@ -27,7 +27,13 @@ jobs:
         include:
           - os: macos-14
             platform: osx-arm64
-          - os: macos-13
+          # macos-13 was fully retired by GitHub in December 2025 -- jobs
+          # requesting it queue forever with no runner ever assigned, rather
+          # than failing outright. macos-15-intel is GitHub's dedicated x86_64
+          # label, supported until Intel macOS runners retire in fall 2027;
+          # after that this target will need to move to a self-hosted runner
+          # or be dropped.
+          - os: macos-15-intel
             platform: osx64
           - os: windows-latest
             platform: win64
