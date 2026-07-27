@@ -1,4 +1,9 @@
 <table>
+    <% if (loaded && _.isEmpty(torrents)) { %>
+    <tr class="no-torrents">
+        <td colspan="6"><%= i18n.__('No results found') %></td>
+    </tr>
+    <% } %>
     <%_.each(torrents, function(torrent, k) { %>
     <tr class="item-row" data-key="<%=k %>">
         <td class="provider tooltipped<%= Settings.seriesUITransparency ? '' : ' transpOff' %>" <% if (torrent.source) { %>title="<%=torrent.source.split('//').pop().split('/')[0] %>" <% } else { %>title="<%=torrent.provider.toLowerCase() %>" style="cursor:default" <% } %>data-toggle="tooltip" data-container="body" data-placement="left"><img data-href="<%=torrent.source %>" src="<%=torrent.icon %>" <% if (!torrent.source) { %>style="cursor:default" <% } %>onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.top='0'; this.parentElement.classList.add('fas', 'fa-link')" onload="this.onerror=null; this.onload=null;"/></td>

@@ -15,11 +15,15 @@
 
         initialize: function() {
             this.model.set('torrents', []);
+            // 'loaded' keeps the empty-list message from flashing while the
+            // request is still in flight
+            this.model.set('loaded', false);
             this.icons = App.Providers.get('Icons');
         },
 
         onAttach: function () {
             this.model.set('torrents', []);
+            this.model.set('loaded', false);
             this.model.get('promise')
                 .then((data) => this.updateTorrents(data))
                 .catch((error) => this.onTorrentsError(error));
@@ -41,6 +45,7 @@
             }
             Promise.all(loadIcons).then((data) => {
                 this.model.set('torrents', torrents);
+                this.model.set('loaded', true);
                 this.render();
                 this.$('.tooltipped').tooltip({
                     delay: {
