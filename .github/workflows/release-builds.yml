@@ -52,6 +52,14 @@ jobs:
           path: cache
           key: nwjs-${{ matrix.platform }}-${{ hashFiles('gulpfile.js') }}
 
+      - name: Reconfigure git to use HTTP authentication
+        # yarn.lock pins at least one dependency (vtt.js) via an
+        # ssh://git@github.com/ URL. CI has no SSH key, so the fetch fails with
+        # "Permission denied (publickey)" unless git rewrites it to HTTPS.
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
