@@ -73,9 +73,12 @@ jobs:
         shell: bash
         run: |
           set -e
+          # With zip:false (this gulpfile's nw-builder config), macOS gets its
+          # payload wrapped in app.nw inside the .app bundle; Windows has no
+          # such wrapper and gets the payload copied flat into releasePath.
           case "${{ matrix.platform }}" in
             osx*)  PAYLOAD="build/Popcorn-Time/${{ matrix.platform }}/Popcorn-Time.app/Contents/Resources/app.nw" ;;
-            win64) PAYLOAD="build/Popcorn-Time/win64/package.nw" ;;
+            win64) PAYLOAD="build/Popcorn-Time/win64" ;;
           esac
           if [ ! -d "$PAYLOAD" ]; then
             echo "::error::App payload missing at $PAYLOAD - the build is a hollow runtime."
