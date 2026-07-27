@@ -140,6 +140,13 @@ jobs:
     needs: packs
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      # Repo default workflow permission is read-only (settings, not code),
+      # so ncipollo/release-action failed with 403 "Resource not accessible
+      # by integration" trying to create the release. Scoped here rather
+      # than raising the repo-wide default, since this is the only job that
+      # needs write access.
+      contents: write
     steps:
       - name: Context
         if: startsWith(github.ref, 'refs/tags/v')
