@@ -168,3 +168,37 @@ jobs:
           allowUpdates: true
           name: ${{ github.ref_name }}
           artifacts: "artifacts/*"
+          # Without a body this published bare releases -- eleven similarly
+          # named assets and nothing saying which one to download, or what
+          # changed. `body` carries the part that is the same every release;
+          # generateReleaseNotes asks GitHub for the commit/PR summary, which
+          # it appends underneath. Anything release-specific worth calling out
+          # goes in by hand afterwards, on top of both -- and omitBodyDuringUpdate
+          # keeps those hand-written notes when allowUpdates re-runs a release
+          # for an existing tag, which would otherwise reset the body to this
+          # template.
+          generateReleaseNotes: true
+          omitBodyDuringUpdate: true
+          body: |
+            ## Which download?
+
+            | Platform | Asset |
+            | --- | --- |
+            | macOS, Apple Silicon | `*-osx-arm64.zip` |
+            | macOS, Intel | `*-osx64.zip` |
+            | Windows x64 | `*-win64.zip` |
+            | Linux, portable | `*-linux64.AppImage` |
+            | Linux, Debian/Ubuntu | `*-amd64.deb` |
+            | Linux, archive | `*-linux64.zip` |
+
+            Assets suffixed `-0.44.5` are built against the legacy NW.js 0.44.5
+            runtime for machines that cannot run the current one. Everything
+            else uses NW.js 0.86.0.
+
+            macOS builds are ad-hoc signed, not notarized. On first launch,
+            right-click the app and choose **Open**, or clear the quarantine
+            flag:
+
+            ```
+            xattr -cr /Applications/Popcorn-Time.app
+            ```
