@@ -96,29 +96,122 @@ const parseReqDeps = () => {
   return new Promise((resolve, reject) => {
     exec(
       'yarn list --prod --json',
-      {maxBuffer: 1024 * 500},
+      // `yarn list --prod --json` currently emits ~130 KB; the old 500 KB cap
+      // left little room, and blowing it makes exec truncate stdout, which
+      // used to surface as an unhandled JSON.parse throw inside this callback
+      // (the promise never settled and the build hung).
+      {maxBuffer: 1024 * 4096},
       (error, stdout, stderr) => {
-        // build array
-        let npmList = JSON.parse(stdout);
+        if (error) {
+          return reject(
+            new Error('`yarn list --prod --json` failed: ' + error.message)
+          );
+        }
+
+        let npmList;
+        try {
+          npmList = JSON.parse(stdout);
+        } catch (e) {
+          return reject(
+            new Error(
+              'Could not parse `yarn list --prod --json` output: ' +
+                e.message +
+                (stderr ? '\nyarn stderr: ' + stderr : '')
+            )
+          );
+        }
+
+        if (!npmList.data || !Array.isArray(npmList.data.trees)) {
+          return reject(
+            new Error('Unexpected `yarn list --prod --json` payload shape')
+          );
+        }
 
         // format for nw-builder
-        npmList = npmList.data.trees.map((obj) => {
+        const deps = npmList.data.trees.map((obj) => {
           let name = obj.name;
           name = name.replace(/@[\d.]+$/, '');
           return './node_modules/' + name + '/**';
         });
 
         // not know why it not add
-        npmList.push('./node_modules/cheerio/**');
+        deps.push('./node_modules/cheerio/**');
 
-        // return
-        resolve(npmList);
-        if (error || stderr) {
-          console.log(error);
+        // A build whose dependency list came back (nearly) empty still
+        // produces an app that launches -- it just has no vendor scripts, so
+        // the renderer dies on `jQuery is not defined` and the window, which
+        // starts hidden, is never shown. Fail loudly instead.
+        if (deps.length < 2) {
+          return reject(
+            new Error(
+              'Resolved only ' +
+                deps.length +
+                ' production dependencies; refusing to package an app without node_modules'
+            )
+          );
         }
+
+        resolve(deps);
       }
     );
   });
+};
+
+// Resolve the same glob library, from the same place, that nw-builder's
+// Utils.getFileList() uses -- checking with a different matcher would prove
+// nothing about what actually gets packaged.
+const nwSimpleGlob = require(require.resolve('simple-glob', {
+  paths: [path.dirname(require.resolve('nw-builder/package.json'))]
+}));
+
+// index.html loads its vendor libraries by root-relative path
+// (`/node_modules/jquery/dist/jquery.min.js` and friends). If those files miss
+// the package, NW.js still starts and the window still exists -- it is just
+// never shown, because `window.show` is false in package.json and the
+// `win.show()` in src/app/app.js is downstream of `App`, which needs Marionette,
+// which needs Backbone, which needs jQuery. The app then looks like it has no
+// UI at all, with nothing on stdout to say why. Verify before packaging.
+const verifyVendorScriptsArePackaged = (files) => {
+  const indexHtml = fs.readFileSync('./src/app/index.html', 'utf8'),
+    required = [];
+
+  let match;
+  const scriptTag = /<script\s+src="(\/node_modules\/[^"]+)"/g;
+  while ((match = scriptTag.exec(indexHtml)) !== null) {
+    required.push('.' + match[1]);
+  }
+
+  if (!required.length) {
+    throw new Error(
+      'No /node_modules script tags found in src/app/index.html -- ' +
+        'verifyVendorScriptsArePackaged() needs updating'
+    );
+  }
+
+  // glob returns forward-slash paths on every platform, but path.normalize()
+  // rewrites them to backslashes on Windows -- `required` is built from the
+  // HTML src attributes and always uses '/', so compare on a single separator.
+  const toPosix = (file) => path.normalize(file).split(path.sep).join('/');
+
+  const packaged = new Set(
+      nwSimpleGlob(files).map((file) => './' + toPosix(file))
+    ),
+    missing = required.filter((file) => !packaged.has(file));
+
+  if (missing.length) {
+    throw new Error(
+      'These vendor scripts are referenced by src/app/index.html but would ' +
+        'not be packaged:\n  ' +
+        missing.join('\n  ') +
+        '\nThe resulting build would start with a hidden window and no UI. ' +
+        'Run `yarn` and rebuild.'
+    );
+  }
+
+  console.log(
+    'Verified %d vendor scripts from index.html are in the package',
+    required.length
+  );
 };
 
 const curVersion = () => {
@@ -448,6 +541,8 @@ gulp.task('nwjs', () => {
         '!./**/.*/**'
       ]);
 
+      verifyVendorScriptsArePackaged(nw.options.files);
+
       return nw.build();
     })
     .then(() => {
@@ -468,6 +563,11 @@ gulp.task('nwjs', () => {
     })
     .catch(function(error) {
       console.error(error);
+      // Rethrow: this used to swallow the failure, so `gulp build` reported
+      // success and `gulp dist` went on to zip/deb/nsis whatever half-packaged
+      // tree was left behind. A package missing node_modules launches into a
+      // permanently hidden window, which reads as "the app has no UI".
+      throw error;
     });
 });
 

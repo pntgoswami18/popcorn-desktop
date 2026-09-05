@@ -645,21 +645,37 @@
                     $('.nav-hor.left li:first').click();
                     App.vent.trigger('settings:show');
                     break;
+                // Unlike the startup reconcile in main_window.js, these two are
+                // explicit user actions, so they still edit the manifest in a
+                // source checkout -- the checkbox would otherwise do nothing.
+                // The warning says which tracked file just changed.
                 case 'nativeWindowFrame':
-                    let packageJson = jsonFileEditor(`package.json`);
-                    packageJson.get('window').frame = value;
-                    packageJson.save();
-                    this.alertMessageSuccess(true);
+                    try {
+                        let packageJson = openAppManifest();
+                        packageJson.set('window.frame', value);
+                        packageJson.save();
+                        if (isSourceCheckout) {
+                            win.warn('Modified the version-controlled manifest at %s', appManifestPath);
+                        }
+                        this.alertMessageSuccess(true);
+                    } catch (err) {
+                        win.error('Could not write nativeWindowFrame to the app manifest', err);
+                        this.alertMessageFailed(i18n.__('Error'));
+                    }
                     break;
                 case 'audioPassthrough':
-                    let packageJson2 = jsonFileEditor(`package.json`);
-                    if (Settings.audioPassthrough) {
-                        packageJson2.set('chromium-args', '--enable-node-worker --disable-audio-output-resampler');
-                    } else {
-                        packageJson2.set('chromium-args', '--enable-node-worker');
+                    try {
+                        let packageJson2 = openAppManifest();
+                        setResamplerFlag(packageJson2, Settings.audioPassthrough);
+                        packageJson2.save();
+                        if (isSourceCheckout) {
+                            win.warn('Modified the version-controlled manifest at %s', appManifestPath);
+                        }
+                        this.alertMessageSuccess(true);
+                    } catch (err) {
+                        win.error('Could not write audioPassthrough to the app manifest', err);
+                        this.alertMessageFailed(i18n.__('Error'));
                     }
-                    packageJson2.save();
-                    this.alertMessageSuccess(true);
                     break;
                 case 'customMoviesServer':
                 case 'customSeriesServer':

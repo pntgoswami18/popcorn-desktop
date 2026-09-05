@@ -331,12 +331,37 @@
         }
 
         // set native frame & audio passthrough on first run after updating from settings
-        if ((Settings.nativeWindowFrame && !nw.App.manifest.window.frame) || (Settings.audioPassthrough && !nw.App.manifest['chromium-args'].includes('resampler'))) {
-          let packageJson = jsonFileEditor(`package.json`);
-          Settings.nativeWindowFrame ? packageJson.get('window').frame = true : null;
-          Settings.audioPassthrough ? packageJson.set('chromium-args', '--enable-node-worker --disable-audio-output-resampler') : null;
-          packageJson.save();
-          that.restartButter();
+        let applyFrame = Settings.nativeWindowFrame && !nw.App.manifest.window.frame,
+          applyPassthrough = Settings.audioPassthrough && !(nw.App.manifest['chromium-args'] || '').includes('resampler');
+
+        if (applyFrame || applyPassthrough) {
+          // NW.js only reads window.frame and chromium-args from the manifest at
+          // startup, so honouring these settings means editing package.json and
+          // restarting. In a source checkout that manifest is a tracked file, and
+          // rewriting it here dirtied the working tree on every run with no
+          // visible cause -- the setting lives in the user database, so a clean
+          // checkout would silently pick up whatever a previous session had set.
+          // Packaged builds still apply it; a checkout has to be edited by hand.
+          if (isSourceCheckout) {
+            win.warn(
+              'Not applying %s to the manifest: %s is version-controlled in a source checkout. Edit it manually to test this setting.',
+              [applyFrame ? 'nativeWindowFrame' : null, applyPassthrough ? 'audioPassthrough' : null].filter(Boolean).join(' and '),
+              appManifestPath
+            );
+          } else {
+            try {
+              let packageJson = openAppManifest();
+              applyFrame ? packageJson.set('window.frame', true) : null;
+              applyPassthrough ? setResamplerFlag(packageJson, true) : null;
+              packageJson.save();
+              that.restartButter();
+            } catch (err) {
+              // Never let this take the app down: the settings are cosmetic
+              // next to actually starting, and the old code would have thrown
+              // out of the startup chain into a generic 'Error starting up'.
+              win.error('Could not apply window/audio settings to the app manifest', err);
+            }
+          }
         }
 
         fs.promises.readdir(data_path + '/TorrentCollection/').then(files => {
