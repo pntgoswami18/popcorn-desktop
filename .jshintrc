@@ -87,6 +87,7 @@
         "appManifestPath": true,
         "isSourceCheckout": true,
         "openAppManifest": true,
+        "setResamplerFlag": true,
 
         // Third party
         "Backbone": true,

@@ -666,9 +666,7 @@
                 case 'audioPassthrough':
                     try {
                         let packageJson2 = openAppManifest();
-                        packageJson2.set('chromium-args', Settings.audioPassthrough
-                            ? '--enable-node-worker --disable-audio-output-resampler'
-                            : '--enable-node-worker');
+                        setResamplerFlag(packageJson2, Settings.audioPassthrough);
                         packageJson2.save();
                         if (isSourceCheckout) {
                             win.warn('Modified the version-controlled manifest at %s', appManifestPath);

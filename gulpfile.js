@@ -188,8 +188,13 @@ const verifyVendorScriptsArePackaged = (files) => {
     );
   }
 
+  // glob returns forward-slash paths on every platform, but path.normalize()
+  // rewrites them to backslashes on Windows -- `required` is built from the
+  // HTML src attributes and always uses '/', so compare on a single separator.
+  const toPosix = (file) => path.normalize(file).split(path.sep).join('/');
+
   const packaged = new Set(
-      nwSimpleGlob(files).map((file) => './' + path.normalize(file))
+      nwSimpleGlob(files).map((file) => './' + toPosix(file))
     ),
     missing = required.filter((file) => !packaged.has(file));
 

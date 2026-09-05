@@ -352,7 +352,7 @@
             try {
               let packageJson = openAppManifest();
               applyFrame ? packageJson.set('window.frame', true) : null;
-              applyPassthrough ? packageJson.set('chromium-args', '--enable-node-worker --disable-audio-output-resampler') : null;
+              applyPassthrough ? setResamplerFlag(packageJson, true) : null;
               packageJson.save();
               that.restartButter();
             } catch (err) {

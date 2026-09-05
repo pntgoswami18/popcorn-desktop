@@ -122,3 +122,30 @@ var openAppManifest = function () {
     stringify_eol: true
   });
 };
+
+/**
+ * Toggle the audio-passthrough flag in an open manifest editor's chromium-args
+ * without disturbing the other flags it ships with (--no-sandbox, for one:
+ * dropping that stops a packaged Linux build from launching at all). Reads the
+ * value back off the editor rather than nw.App.manifest, which is the boot-time
+ * snapshot and goes stale after the first write in a session.
+ */
+var setResamplerFlag = function (editor, enabled) {
+  var FLAG = '--disable-audio-output-resampler';
+  var tokens = String(editor.get('chromium-args') || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter(function (token) {
+      return token !== FLAG;
+    });
+
+  if (!tokens.length) {
+    tokens.push('--enable-node-worker');
+  }
+
+  if (enabled) {
+    tokens.push(FLAG);
+  }
+
+  editor.set('chromium-args', tokens.join(' '));
+};
