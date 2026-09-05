@@ -83,6 +83,10 @@
         "curSetDefaultFilters": true,
         "extPlayerlst": true,
         "jsonFileEditor": true,
+        "appRootPath": true,
+        "appManifestPath": true,
+        "isSourceCheckout": true,
+        "openAppManifest": true,
 
         // Third party
         "Backbone": true,
