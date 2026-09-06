@@ -39,7 +39,7 @@ jobs:
             platform: win64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history + tags: gulp's injectgit derives the version from
           # `git describe`, and curVersion() feeds it into the zip filename.
@@ -47,10 +47,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - name: Use Node.js 24
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Cache NW.js runtime
         uses: actions/cache@v4
