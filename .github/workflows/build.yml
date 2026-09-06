@@ -1,11 +1,22 @@
 name: Latest Build
 
 on:
+  # '*' does not match a branch name containing '/', so pushes to ci/…, fix/…
+  # and release/… never triggered this workflow. In the last 60 runs the only
+  # head refs that ever built were `development` and the v* tags, which means
+  # every pull request so far merged without CI having run on it once.
+  #
+  # `development` is listed explicitly rather than switching to '**' so that a
+  # same-repo pull request does not build twice, once for its branch push and
+  # again for the pull_request event -- this matrix is nine jobs. Building an
+  # arbitrary ref on demand is already covered by release-builds.yml's
+  # workflow_dispatch.
   push:
     branches:
-      - '*'
+      - development
     tags:
       - 'v*'
+  pull_request:
 
 jobs:
   build:
@@ -140,6 +151,11 @@ jobs:
     needs: packs
     name: Release
     runs-on: ubuntu-latest
+    # Only tags produce a release. This was previously enforced per-step, so
+    # the job still spun up and downloaded every artifact -- well over a
+    # gigabyte -- on runs that could never publish anything. With pull
+    # requests now building, that would happen on every PR.
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       # Repo default workflow permission is read-only (settings, not code),
       # so ncipollo/release-action failed with 403 "Resource not accessible
