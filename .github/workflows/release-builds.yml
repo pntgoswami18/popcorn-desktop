@@ -94,6 +94,16 @@ jobs:
           test -f "$PAYLOAD/src/app/lib/views/movie_detail.js"
           echo "Payload OK: $PAYLOAD"
 
+      - name: Ad-hoc code sign (macOS)
+        # nw-builder edits Info.plist, the icon and Contents/Resources after
+        # NW.js signed the runtime bundle, so the built .app ships with a broken
+        # signature. On Apple Silicon that plus the download quarantine flag
+        # makes Finder refuse it as "damaged and can't be opened". Ad-hoc
+        # signing restores a structurally valid bundle. It is not notarization,
+        # so first launch still needs the quarantine flag cleared.
+        if: startsWith(matrix.platform, 'osx')
+        run: yarn gulp codesign --platforms=${{ matrix.platform }}
+
       - name: Package zip
         run: yarn gulp compresszip --platforms=${{ matrix.platform }}
 
