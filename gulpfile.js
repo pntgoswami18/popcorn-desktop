@@ -399,17 +399,49 @@ gulp.task('jshint', () => {
 gulp.task('compresszip', () => {
   return Promise.all(
     nw.options.platforms.map((platform) => {
+      const zipName =
+        pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.zip';
+
+      // macOS bundles must go through ditto, not gulp-zip. The .app contains
+      // five symlinks that make up the versioned framework layout
+      // (nwjs Framework.framework/Versions/Current and friends); gulp-zip
+      // follows them and stores copies instead, so the extracted bundle has no
+      // Versions/Current and `codesign --verify` fails with "bundle format
+      // unrecognized, invalid, or unsuitable" -- which Gatekeeper surfaces as
+      // "damaged and can't be opened". ditto is the system archiver, preserves
+      // symlinks, permissions and the code signature, and as a side effect
+      // produces a smaller archive because the symlink targets are not
+      // duplicated.
+      if (platform.match(/osx/) !== null) {
+        if (process.platform !== 'darwin') {
+          console.log(
+            'Skipping %s zip: macOS bundles must be archived on macOS with ditto',
+            platform
+          );
+          return Promise.resolve();
+        }
+
+        const app = path.join(releasesDir, pkJson.name, platform, pkJson.name + '.app');
+        const dest = path.join(releasesDir, zipName);
+
+        console.log('Packaging zip for: %s', platform);
+        return waitProcess(
+          spawn('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, dest])
+        ).then(() => {
+          console.log(
+            '%s zip packaged in %s',
+            platform,
+            path.join(process.cwd(), releasesDir)
+          );
+        });
+      }
+
       return new Promise((resolve, reject) => {
         console.log('Packaging zip for: %s', platform);
-        var sources = path.join('build', pkJson.name, platform);
-        if (platform.match(/osx/) !== null) {
-          sources = path.join('build', pkJson.name, platform, '/**.app');
-        }
+        const sources = path.join(releasesDir, pkJson.name, platform);
         return gulp
           .src(sources + '/**')
-          .pipe(
-            zip(pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '.zip')
-          )
+          .pipe(zip(zipName))
           .pipe(gulp.dest(releasesDir))
           .on('end', () => {
             console.log(
@@ -469,13 +501,46 @@ gulp.task('clean:css', deleteAndLog(['src/app/themes'], 'css files'));
 //setexecutable?
 //bower_clean
 
-//TODO: test and tweak
-/*gulp.task('codesign', () => {
-    exec('sh dist/mac/codesign.sh || echo "Codesign failed, likely caused by not being run on mac, continuing"', (error, stdout, stderr) => {
-        console.log(stdout);
+// ad-hoc code signing for macOS bundles
+// nw-builder renames the runtime's nwjs.app, rewrites Info.plist and the icon,
+// and injects app.nw into Contents/Resources. Every one of those edits happens
+// after NW.js signed the bundle, so the shipped .app has no valid signature at
+// all (`codesign --verify` reports "code has no resources but signature
+// indicates they must be present"). On Apple Silicon an unsigned or
+// broken-signature bundle that carries the download quarantine flag is refused
+// outright, with Finder reporting it as "damaged and can't be opened" rather
+// than the usual unidentified-developer prompt.
+//
+// Re-signing ad-hoc (`--sign -`) makes the bundle structurally valid again and
+// removes the "damaged" failure. It is not notarization: users still have to
+// clear quarantine on first launch (right-click > Open, or
+// `xattr -dr com.apple.quarantine`). Proper signing would need an Apple
+// Developer ID, which this fork does not have.
+gulp.task('codesign', () => {
+  if (process.platform !== 'darwin') {
+    console.log('Skipping codesign: only possible on macOS');
+    return Promise.resolve();
+  }
+
+  return nw.options.platforms.reduce((chain, platform) => {
+    if (platform.match(/osx/) === null) {
+      return chain;
+    }
+
+    const app = path.join(releasesDir, pkJson.name, platform, pkJson.name + '.app');
+
+    return chain.then(() => {
+      console.log('Ad-hoc signing: %s', app);
+      // --deep is deprecated for Developer ID signing but remains the only way
+      // to sign the nested helper apps and framework of an ad-hoc bundle in one
+      // pass, which is what NW.js's layout needs here.
+      return waitProcess(spawn('codesign', ['--force', '--deep', '--sign', '-', app]))
+        .then(() => waitProcess(spawn('codesign', ['--verify', '--deep', '--strict', app])))
+        .then(() => console.log('%s signed and verified', platform));
     });
+  }, Promise.resolve());
 });
-*/
+
 gulp.task('mac-pkg', () => {
   // pkg-maker.sh uses a fixed intermediate name (Build.pkg, referenced by
   // distribution.xml), so platforms are packaged sequentially, not in parallel.
@@ -726,6 +791,7 @@ gulp.task(
   'dist',
   gulp.series(
     'build',
+    'codesign',
     'compresszip',
     'deb',
    // 'mac-pkg',
