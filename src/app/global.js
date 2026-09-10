@@ -149,3 +149,59 @@ var setResamplerFlag = function (editor, enabled) {
 
   editor.set('chromium-args', tokens.join(' '));
 };
+
+/**
+ * Re-sign the macOS app bundle ad-hoc after a manifest write.
+ *
+ * Contents/Resources/app.nw/package.json is a sealed resource, so editing it to
+ * honour nativeWindowFrame or audioPassthrough invalidates the bundle's
+ * signature. Gatekeeper only evaluates a bundle while it carries the download
+ * quarantine flag, so this does not break a normal install -- but a bundle that
+ * is re-quarantined later (AirDropped, re-zipped, copied to another Mac) then
+ * presents as "damaged and can't be opened", which is the failure the build's
+ * ad-hoc signing exists to prevent.
+ *
+ * Signs shallow, not --deep: only the outer seal is stale, since the nested
+ * helpers and framework are untouched by a manifest edit. That takes about a
+ * third off the signing time, and re-sealing a running bundle this way has been
+ * verified not to disturb the running process.
+ *
+ * Best-effort by design. Signing is skipped in a source checkout and off macOS,
+ * and any failure -- no codesign, read-only volume, unsignable bundle -- is
+ * logged and swallowed: a cosmetic window setting must never take the app down,
+ * and the app keeps working with the signature the manifest write broke.
+ *
+ * @return {Promise} always resolves, never rejects.
+ */
+var resignAppBundle = function () {
+  return new Promise(function (resolve) {
+    if (process.platform !== 'darwin' || isSourceCheckout) {
+      return resolve();
+    }
+
+    // appRootPath is <bundle>/Contents/Resources/app.nw, so the bundle is three
+    // levels up. Confirm that really is a .app before handing it to codesign,
+    // so an unexpected layout can never point the tool at an unrelated
+    // directory.
+    var bundle = path.resolve(appRootPath, '..', '..', '..');
+
+    if (path.extname(bundle) !== '.app') {
+      win.warn('Not re-signing: %s is not an app bundle', bundle);
+      return resolve();
+    }
+
+    child.execFile(
+      '/usr/bin/codesign',
+      ['--force', '--sign', '-', bundle],
+      { timeout: 120000 },
+      function (err) {
+        if (err) {
+          win.warn('Could not re-sign %s after a manifest write', bundle, err);
+        } else {
+          win.info('Re-signed %s after a manifest write', bundle);
+        }
+        resolve();
+      }
+    );
+  });
+};

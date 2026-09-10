@@ -654,6 +654,11 @@
                         let packageJson = openAppManifest();
                         packageJson.set('window.frame', value);
                         packageJson.save();
+                        // Editing the manifest breaks the bundle's seal on
+                        // macOS; re-seal it. Not awaited -- the checkbox has
+                        // already taken effect and only needs a restart, and
+                        // resignAppBundle logs its own failures.
+                        resignAppBundle();
                         if (isSourceCheckout) {
                             win.warn('Modified the version-controlled manifest at %s', appManifestPath);
                         }
@@ -668,6 +673,7 @@
                         let packageJson2 = openAppManifest();
                         setResamplerFlag(packageJson2, Settings.audioPassthrough);
                         packageJson2.save();
+                        resignAppBundle();
                         if (isSourceCheckout) {
                             win.warn('Modified the version-controlled manifest at %s', appManifestPath);
                         }

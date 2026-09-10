@@ -88,6 +88,7 @@
         "isSourceCheckout": true,
         "openAppManifest": true,
         "setResamplerFlag": true,
+        "resignAppBundle": true,
 
         // Third party
         "Backbone": true,
