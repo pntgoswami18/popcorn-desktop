@@ -354,7 +354,13 @@
               applyFrame ? packageJson.set('window.frame', true) : null;
               applyPassthrough ? setResamplerFlag(packageJson, true) : null;
               packageJson.save();
-              that.restartButter();
+              // The write just broke the bundle's seal on macOS. Re-sign before
+              // restarting, and restart either way -- resignAppBundle never
+              // rejects, and a failed signature is not a reason to strand the
+              // user on a manifest that only takes effect after a restart.
+              resignAppBundle().then(function () {
+                that.restartButter();
+              });
             } catch (err) {
               // Never let this take the app down: the settings are cosmetic
               // next to actually starting, and the old code would have thrown

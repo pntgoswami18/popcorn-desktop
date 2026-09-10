@@ -218,3 +218,16 @@ jobs:
             ```
             xattr -cr /Applications/Popcorn-Time.app
             ```
+
+            Turning on **Native window frame** or **Audio passthrough** rewrites
+            the manifest inside the app bundle, because NW.js reads those two
+            settings only from there and only at startup. That invalidates the
+            ad-hoc signature, so the app re-signs itself afterwards. If that
+            re-sign is ever unavailable the app still runs -- macOS only checks
+            the signature while the download quarantine flag is set -- but a
+            copy passed on to another Mac may be refused as damaged. Re-signing
+            by hand restores it:
+
+            ```
+            codesign --force --sign - /Applications/Popcorn-Time.app
+            ```
