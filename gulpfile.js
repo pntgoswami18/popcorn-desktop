@@ -642,11 +642,25 @@ gulp.task('injectgit', () => {
     .then(
       (gitInfo) =>
         new Promise((resolve, reject) => {
+          // pkJson.version can carry a prerelease tail (0.5.6-beta1) that git
+          // describe knows nothing about, so it gets reattached here. On an
+          // ordinary release there is no tail, and appending regardless left a
+          // trailing '-': semver became "0.5.5+3.g6ff0661a-", which propagated
+          // into artifact names and broke the deb rename looking for
+          // Popcorn-Time-0.5.5+3.g6ff0661a--amd64.deb. That only happens while
+          // package.json is ahead of the last tag -- precisely what a release
+          // PR builds -- so it stayed hidden until PRs started building.
+          const describe = gitInfo.semverString,
+            prerelease = pkJson.version.split('-').slice(1).join('-');
+
           fs.writeFile(
             'git.json',
             JSON.stringify({
               commit: gitInfo.hash.substr(1),
-              semver: gitInfo.semverString.includes(pkJson.version) ? gitInfo.semverString : gitInfo.semverString + '-' + pkJson.version.split('-').slice(1).join('-'),
+              semver:
+                describe.includes(pkJson.version) || !prerelease
+                  ? describe
+                  : describe + '-' + prerelease,
             }),
             (error) => {
               return error ? reject(error) : resolve(gitInfo);
